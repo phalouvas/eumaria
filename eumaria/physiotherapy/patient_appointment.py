@@ -36,9 +36,9 @@ def on_update_patient_appointment(doc, method=None):
 			doc.title = f"{base_title}: {names_str}"
 			
 			# Also update the calendar event if it exists
-			if doc.calendar_event:
+			if hasattr(doc, 'event') and doc.event:
 				try:
-					event = frappe.get_doc("Event", doc.calendar_event)
+					event = frappe.get_doc("Event", doc.event)
 					event.subject = doc.title
 					event.description = f"Attendees: {names_str}"
 					event.save(ignore_permissions=True)
