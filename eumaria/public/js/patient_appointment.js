@@ -44,6 +44,19 @@ frappe.ui.form.on('Patient Appointment', {
 // Child table events
 frappe.ui.form.on('Group Appointment Attendee', {
 	patient: function(frm, cdt, cdn) {
+		// Check for duplicate patients
+		let row = locals[cdt][cdn];
+		if (row.patient) {
+			let duplicate = frm.doc.attendees.find(a => 
+				a.patient === row.patient && a.name !== row.name
+			);
+			if (duplicate) {
+				frappe.msgprint(__('Patient {0} is already added to attendees list', [row.patient_name || row.patient]));
+				frappe.model.set_value(cdt, cdn, 'patient', '');
+				return;
+			}
+		}
+		
 		update_appointment_title(frm);
 		// Auto-set first attendee as primary patient for compatibility
 		if (frm.doc.is_group_session && frm.doc.attendees && frm.doc.attendees.length > 0) {

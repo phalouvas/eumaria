@@ -12,6 +12,11 @@ def validate_patient_appointment(doc, method=None):
 		if not doc.attendees or len(doc.attendees) == 0:
 			frappe.throw(_("Please add at least one attendee for group session"))
 		
+		# Check for duplicate patients
+		patient_list = [attendee.patient for attendee in doc.attendees if attendee.patient]
+		if len(patient_list) != len(set(patient_list)):
+			frappe.throw(_("Duplicate patients found in attendees list. Each patient can only be added once."))
+		
 		# Make patient field optional for group sessions
 		if not doc.patient:
 			# Use first attendee as primary patient for compatibility
