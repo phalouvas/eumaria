@@ -140,30 +140,18 @@ after_install = "eumaria.physiotherapy.custom_fields.execute"
 doc_events = {
 	"Patient Appointment": {
 		"validate": "eumaria.physiotherapy.patient_appointment.validate_patient_appointment",
-		"on_update": "eumaria.physiotherapy.patient_appointment.on_update_patient_appointment",
+		"on_update": "eumaria.physiotherapy.patient_appointment.on_update_appointment",
 	}
 }
 
 # Scheduled Tasks
 # ---------------
 
-# scheduler_events = {
-# 	"all": [
-# 		"eumaria.tasks.all"
-# 	],
-# 	"daily": [
-# 		"eumaria.tasks.daily"
-# 	],
-# 	"hourly": [
-# 		"eumaria.tasks.hourly"
-# 	],
-# 	"weekly": [
-# 		"eumaria.tasks.weekly"
-# 	],
-# 	"monthly": [
-# 		"eumaria.tasks.monthly"
-# 	],
-# }
+scheduler_events = {
+	"hourly": [
+		"eumaria.physiotherapy.patient_appointment.send_group_appointment_reminders"
+	],
+}
 
 # Testing
 # -------
