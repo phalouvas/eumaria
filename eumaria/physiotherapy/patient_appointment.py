@@ -3,6 +3,7 @@
 
 import frappe
 from frappe import _
+from healthcare.healthcare.doctype.patient_appointment.patient_appointment import send_message
 
 
 def validate_patient_appointment(doc, method=None):
@@ -23,8 +24,9 @@ def validate_patient_appointment(doc, method=None):
 			doc.patient = doc.attendees[0].patient
 
 
-def on_update_patient_appointment(doc, method=None):
-	"""Update appointment title with attendee names"""
+def on_update_appointment(doc, method=None):
+	"""Handle on_update events: group session titles and reschedule SMS"""
+	# Update appointment title with attendee names (for group sessions)
 	if doc.is_group_session and doc.attendees:
 		attendee_names = []
 		for attendee in doc.attendees:
@@ -49,3 +51,23 @@ def on_update_patient_appointment(doc, method=None):
 					event.save(ignore_permissions=True)
 				except Exception as e:
 					frappe.log_error(f"Failed to update calendar event: {str(e)}")
+	
+	# Send SMS when appointment is rescheduled
+	send_reschedule_sms_on_update(doc)
+
+
+def send_reschedule_sms_on_update(doc):
+	"""Send SMS when appointment is rescheduled (appointment_date or appointment_time changed)"""
+	# Only send if the appointment date or time field was actually changed
+	if not (doc.has_value_changed("appointment_date") or doc.has_value_changed("appointment_time")):
+		return
+	
+	# Send the confirmation message for the rescheduled appointment
+	message = frappe.db.get_single_value("Healthcare Settings", "appointment_confirmation_msg")
+	if message:
+		try:
+			send_message(doc, message)
+			frappe.log_error(f"Reschedule SMS sent for appointment {doc.name}")
+		except Exception:
+			frappe.log_error(frappe.get_traceback(), _("Appointment Reschedule Message Not Sent"))
+
