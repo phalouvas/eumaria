@@ -147,23 +147,11 @@ doc_events = {
 # Scheduled Tasks
 # ---------------
 
-# scheduler_events = {
-# 	"all": [
-# 		"eumaria.tasks.all"
-# 	],
-# 	"daily": [
-# 		"eumaria.tasks.daily"
-# 	],
-# 	"hourly": [
-# 		"eumaria.tasks.hourly"
-# 	],
-# 	"weekly": [
-# 		"eumaria.tasks.weekly"
-# 	],
-# 	"monthly": [
-# 		"eumaria.tasks.monthly"
-# 	],
-# }
+scheduler_events = {
+	"hourly": [
+		"eumaria.physiotherapy.patient_appointment.send_group_appointment_reminders"
+	],
+}
 
 # Testing
 # -------
