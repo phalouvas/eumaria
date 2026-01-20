@@ -7,7 +7,15 @@ from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
 def execute():
 	"""Create custom fields for Patient Appointment to support group sessions"""
-	
+	# Healthcare app defines Patient Appointment and Group Appointment Attendee doctypes.
+	# Skip gracefully if healthcare is not installed yet.
+	if not frappe.db.table_exists("tabPatient Appointment"):
+		frappe.logger().warning("eumaria: Patient Appointment doctype not found; skipping custom field creation")
+		return
+	if not frappe.db.table_exists("tabGroup Appointment Attendee"):
+		frappe.logger().warning("eumaria: Group Appointment Attendee doctype not found; skipping custom field creation")
+		return
+
 	custom_fields = {
 		"Patient Appointment": [
 			{
@@ -29,5 +37,5 @@ def execute():
 			}
 		]
 	}
-	
+
 	create_custom_fields(custom_fields, update=True)
