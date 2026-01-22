@@ -137,20 +137,15 @@ after_install = "eumaria.physiotherapy.custom_fields.execute"
 # ---------------
 # Hook on document methods and events
 
-doc_events = {
-	"Patient Appointment": {
-		"validate": "eumaria.physiotherapy.patient_appointment.validate_patient_appointment",
-		"on_update": "eumaria.physiotherapy.patient_appointment.on_update_appointment",
-	}
-}
+# doc_events = {}
 
 # Scheduled Tasks
 # ---------------
 
 scheduler_events = {
-	"hourly": [
-		"eumaria.physiotherapy.patient_appointment.send_group_appointment_reminders"
-	],
+	# "hourly": [
+	# 	"eumaria.physiotherapy.patient_appointment.send_group_appointment_reminders"
+	# ],
 }
 
 # Testing
