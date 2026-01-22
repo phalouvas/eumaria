@@ -43,7 +43,7 @@ app_license = "mit"
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-doctype_js = {"Patient Appointment" : "public/js/patient_appointment.js"}
+# doctype_js = {"Patient Appointment" : "public/js/patient_appointment.js"}
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -142,11 +142,7 @@ after_install = "eumaria.physiotherapy.custom_fields.execute"
 # Scheduled Tasks
 # ---------------
 
-scheduler_events = {
-	# "hourly": [
-	# 	"eumaria.physiotherapy.patient_appointment.send_group_appointment_reminders"
-	# ],
-}
+scheduler_events = {}
 
 # Testing
 # -------
