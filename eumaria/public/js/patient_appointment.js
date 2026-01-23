@@ -26,8 +26,7 @@ frappe.ui.form.on('Patient Appointment', {
 								}
 							},
 						});
-					},
-					__('Actions'),
+					}
 				);
 			});
 	},

@@ -67,4 +67,5 @@ def send_appointment_sms(appointment_name: str) -> None:
 		frappe.throw(_("Appointment SMS could not be sent. Please check SMS Settings."))
 
 	appointment.db_set("reminded", 1)
+	appointment.add_comment("Info", _("Manual SMS sent to {0}.").format(patient_mobile))
 	frappe.msgprint(_("SMS sent to {0}.").format(patient_mobile), alert=True)
