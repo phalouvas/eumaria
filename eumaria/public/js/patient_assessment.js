@@ -1,0 +1,108 @@
+frappe.ui.form.on('Patient Assessment', {
+	refresh(frm) {
+		// Show annotate button if template requires a body map
+		if (frm.doc.assessment_template) {
+			frappe.db.get_value('Patient Assessment Template', frm.doc.assessment_template, ['requires_body_map', 'base_body_map']).then(r => {
+				const cfg = r && r.message ? r.message : {};
+				if (cfg.requires_body_map) {
+					frm.add_custom_button(__('Annotate Body Map'), () => {
+						show_body_map_dialog(frm, cfg.base_body_map);
+					}, 'Actions');
+				}
+			});
+		}
+	}
+});
+
+function show_body_map_dialog(frm, base_body_map_url) {
+	// Load existing annotated image if present, otherwise use template's base image
+	const imgPath = frm.doc.annotated_body_map || base_body_map_url || '';
+
+	const d = new frappe.ui.Dialog({
+		title: __('Annotate Body Map'),
+		primary_action_label: __('Save'),
+		primary_action: () => {
+			const dataURL = canvas_to_png(dialogCanvas);
+			if (!dataURL) {
+				frappe.msgprint(__('No drawing detected.')); return;
+			}
+			attach_body_map(frm, dataURL).then(() => {
+				d.hide(); frm.reload_doc();
+			});
+		}
+	});
+
+	const wrapper = d.$body.get(0);
+	const toolbar = document.createElement('div');
+	toolbar.style.marginBottom = '6px';
+	toolbar.innerHTML = `
+		<button class="btn btn-sm btn-secondary" data-action="clear">${__('Clear')}</button>
+	`;
+	wrapper.appendChild(toolbar);
+
+	const dialogCanvas = document.createElement('canvas');
+	dialogCanvas.width = 800; dialogCanvas.height = 600;
+	dialogCanvas.style.border = '1px solid #ddd'; dialogCanvas.style.touchAction = 'none';
+	wrapper.appendChild(dialogCanvas);
+
+	const ctx = dialogCanvas.getContext('2d');
+	const bg = new Image();
+	bg.onload = () => { ctx.drawImage(bg, 0, 0, dialogCanvas.width, dialogCanvas.height); };
+	bg.onerror = () => { /* Silently ignore missing image */ };
+	bg.src = imgPath;
+
+	let drawing = false; let last = null;
+	const draw = (pt) => {
+		if (!drawing) return;
+		ctx.strokeStyle = '#d9534f'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+		ctx.beginPath();
+		ctx.moveTo(last.x, last.y);
+		ctx.lineTo(pt.x, pt.y);
+		ctx.stroke();
+		last = pt;
+	};
+
+	const getPt = (evt) => {
+		const rect = dialogCanvas.getBoundingClientRect();
+		const x = (evt.touches ? evt.touches[0].clientX : evt.clientX) - rect.left;
+		const y = (evt.touches ? evt.touches[0].clientY : evt.clientY) - rect.top;
+		return { x, y };
+	};
+
+	dialogCanvas.addEventListener('mousedown', (e) => { drawing = true; last = getPt(e); });
+	dialogCanvas.addEventListener('mousemove', (e) => draw(getPt(e)));
+	dialogCanvas.addEventListener('mouseup', () => { drawing = false; last = null; });
+	dialogCanvas.addEventListener('mouseleave', () => { drawing = false; last = null; });
+	dialogCanvas.addEventListener('touchstart', (e) => { drawing = true; last = getPt(e); e.preventDefault(); });
+	dialogCanvas.addEventListener('touchmove', (e) => { draw(getPt(e)); e.preventDefault(); });
+	dialogCanvas.addEventListener('touchend', () => { drawing = false; last = null; });
+
+	toolbar.querySelector('[data-action="clear"]').addEventListener('click', () => {
+		ctx.clearRect(0, 0, dialogCanvas.width, dialogCanvas.height);
+		ctx.drawImage(bg, 0, 0, dialogCanvas.width, dialogCanvas.height);
+	});
+
+	d.show();
+}
+
+function canvas_to_png(canvas) {
+	try { return canvas.toDataURL('image/png'); } catch (e) { return null; }
+}
+
+function attach_body_map(frm, dataURL) {
+	// dataURL like 'data:image/png;base64,....'
+	const base64 = (dataURL || '').split(',')[1];
+	if (!base64) return Promise.reject('Invalid image');
+	return frappe.call({
+		method: 'frappe.client.attach_file',
+		args: {
+			filename: `body_map_${frm.doc.name}.png`,
+			filedata: base64,
+			decode_base64: 1,
+			doctype: frm.doctype,
+			docname: frm.doc.name,
+			docfield: 'annotated_body_map',
+			is_private: 1,
+		},
+	});
+}
