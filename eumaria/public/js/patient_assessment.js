@@ -37,6 +37,12 @@ function show_body_map_dialog(frm, base_body_map_url) {
 		}
 	});
 
+	// Make dialog nearly full-width on all devices while keeping responsiveness
+	d.$wrapper.find('.modal-dialog').css({
+		'max-width': '95vw',
+		'width': '95vw'
+	});
+
 	const wrapper = d.$body.get(0);
 	const toolbar = document.createElement('div');
 	toolbar.style.marginBottom = '6px';
@@ -46,13 +52,37 @@ function show_body_map_dialog(frm, base_body_map_url) {
 	wrapper.appendChild(toolbar);
 
 	const dialogCanvas = document.createElement('canvas');
-	dialogCanvas.width = 800; dialogCanvas.height = 600;
 	dialogCanvas.style.border = '1px solid #ddd'; dialogCanvas.style.touchAction = 'none';
+	dialogCanvas.style.width = '100%';
 	wrapper.appendChild(dialogCanvas);
 
 	const ctx = dialogCanvas.getContext('2d');
+
+	const resizeCanvasToViewport = (img) => {
+		const maxWidth = Math.floor(window.innerWidth * 0.9);
+		const maxHeight = Math.floor(window.innerHeight * 0.85);
+
+		if (img && img.width && img.height) {
+			const imgRatio = img.width / img.height;
+			let width = maxWidth;
+			let height = Math.round(width / imgRatio);
+			if (height > maxHeight) {
+				height = maxHeight;
+				width = Math.round(height * imgRatio);
+			}
+			dialogCanvas.width = width;
+			dialogCanvas.height = height;
+		} else {
+			dialogCanvas.width = maxWidth;
+			dialogCanvas.height = maxHeight;
+		}
+	};
 	const bg = new Image();
-	bg.onload = () => { ctx.drawImage(bg, 0, 0, dialogCanvas.width, dialogCanvas.height); };
+	bg.onload = () => {
+		resizeCanvasToViewport(bg);
+		ctx.clearRect(0, 0, dialogCanvas.width, dialogCanvas.height);
+		ctx.drawImage(bg, 0, 0, dialogCanvas.width, dialogCanvas.height);
+	};
 	bg.onerror = () => { /* Silently ignore missing image */ };
 	bg.src = imgPath;
 
@@ -69,8 +99,13 @@ function show_body_map_dialog(frm, base_body_map_url) {
 
 	const getPt = (evt) => {
 		const rect = dialogCanvas.getBoundingClientRect();
-		const x = (evt.touches ? evt.touches[0].clientX : evt.clientX) - rect.left;
-		const y = (evt.touches ? evt.touches[0].clientY : evt.clientY) - rect.top;
+		const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+		const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+		// Account for CSS scaling vs canvas intrinsic size to avoid pen offset
+		const scaleX = dialogCanvas.width / rect.width;
+		const scaleY = dialogCanvas.height / rect.height;
+		const x = (clientX - rect.left) * scaleX;
+		const y = (clientY - rect.top) * scaleY;
 		return { x, y };
 	};
 
