@@ -1,5 +1,10 @@
 frappe.ui.form.on('Patient Assessment', {
 	refresh(frm) {
+		// Auto-fill assessment_datetime with current datetime if empty
+		if (!frm.doc.assessment_datetime && frm.doc.__islocal) {
+			frm.set_value('assessment_datetime', frappe.datetime.now_datetime());
+		}
+
 		// Show annotate button if template requires a body map
 		if (frm.doc.assessment_template) {
 			frappe.db.get_value('Patient Assessment Template', frm.doc.assessment_template, ['requires_body_map', 'base_body_map']).then(r => {
