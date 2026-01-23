@@ -33,7 +33,7 @@ def execute():
 				"fieldname": "annotated_body_map",
 				"label": "Annotated Body Map",
 				"fieldtype": "Attach Image",
-				"insert_after": "assessment_description",
+				"insert_after": "assessment_template",
 			},
 		],
 		"Patient Assessment Template": [
