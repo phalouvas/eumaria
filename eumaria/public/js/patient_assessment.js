@@ -5,15 +5,30 @@ frappe.ui.form.on('Patient Assessment', {
 			frm.set_value('assessment_datetime', frappe.datetime.now_datetime());
 		}
 
-		// Show annotate button if template requires a body map
+		// Show annotate/edit buttons and a small preview if an image exists
 		if (frm.doc.assessment_template) {
 			frappe.db.get_value('Patient Assessment Template', frm.doc.assessment_template, ['requires_body_map', 'base_body_map']).then(r => {
 				const cfg = r && r.message ? r.message : {};
-				if (cfg.requires_body_map) {
-					frm.add_custom_button(__('Annotate Body Map'), () => {
-						show_body_map_dialog(frm, cfg.base_body_map);
-					}, 'Actions');
+				if (!cfg.requires_body_map) return;
+
+				// Preview thumbnail next to the field (recreated on refresh)
+				const fieldWrapper = frm.get_field('annotated_body_map').$wrapper;
+				fieldWrapper.find('.body-map-preview').remove();
+				if (frm.doc.annotated_body_map) {
+					const preview = $(`
+						<div class="body-map-preview" style="margin-top:8px;">
+							<label class="control-label">${__('Current Body Map')}</label>
+							<div><img src="${frm.doc.annotated_body_map}" style="max-width:240px; height:auto; border:1px solid #ddd; border-radius:4px;" /></div>
+						</div>
+					`);
+					fieldWrapper.append(preview);
 				}
+
+				// Buttons
+				const label = frm.doc.annotated_body_map ? __('Edit Body Map') : __('Annotate Body Map');
+				frm.add_custom_button(label, () => {
+					show_body_map_dialog(frm, cfg.base_body_map);
+				}, 'Actions');
 			});
 		}
 	}
@@ -133,16 +148,44 @@ function attach_body_map(frm, dataURL) {
 	// dataURL like 'data:image/png;base64,....'
 	const base64 = (dataURL || '').split(',')[1];
 	if (!base64) return Promise.reject('Invalid image');
-	return frappe.call({
-		method: 'frappe.client.attach_file',
-		args: {
-			filename: `body_map_${frm.doc.name}.png`,
-			filedata: base64,
-			decode_base64: 1,
-			doctype: frm.doctype,
-			docname: frm.doc.name,
-			docfield: 'annotated_body_map',
-			is_private: 1,
-		},
-	});
+
+	const deleteExisting = () => {
+		if (!frm.doc.annotated_body_map) return Promise.resolve();
+		return frappe
+			.call({
+				method: 'frappe.client.get_list',
+				args: {
+					doctype: 'File',
+					fields: ['name'],
+					filters: { file_url: frm.doc.annotated_body_map },
+					limit_page_length: 1,
+				},
+				silent: true,
+			})
+			.then((r) => {
+				const name = r && r.message && r.message[0] && r.message[0].name;
+				if (!name) return null;
+				return frappe.call({
+					method: 'frappe.client.delete',
+					args: { doctype: 'File', name },
+					silent: true,
+				});
+			})
+			.catch(() => {});
+	};
+
+	return deleteExisting().then(() =>
+		frappe.call({
+			method: 'frappe.client.attach_file',
+			args: {
+				filename: `body_map_${frm.doc.name}.png`,
+				filedata: base64,
+				decode_base64: 1,
+				doctype: frm.doctype,
+				docname: frm.doc.name,
+				docfield: 'annotated_body_map',
+				is_private: 1,
+			},
+		})
+	);
 }
