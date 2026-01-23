@@ -56,6 +56,7 @@ def execute():
 	create_custom_fields(custom_fields, update=True)
 
 	set_comments_in_list_view()
+	make_score_field_optional()
 	create_or_update_patient_assessment_print_format()
 
 	set_default_patient_appointment_view()
@@ -95,6 +96,17 @@ def set_comments_in_list_view():
 		"in_list_view",
 		1,
 		"Check",
+	)
+
+
+def make_score_field_optional():
+	"""Make score field not required so users can save without filling all scores."""
+	make_property_setter(
+		"Patient Assessment Sheet",
+		"score",
+		"default",
+		"1",
+		"Text",
 	)
 
 
