@@ -21,9 +21,17 @@ frappe.ui.form.on('Patient Assessment', {
 					const preview = $(`
 						<div class="body-map-preview" style="margin-top:8px;">
 							<label class="control-label">${__('Current Body Map')}</label>
-							<div><img src="${frm.doc.annotated_body_map}" style="max-width:240px; height:auto; border:1px solid #ddd; border-radius:4px;" /></div>
+							<div>
+								<img src="${frm.doc.annotated_body_map}" 
+									style="max-width:240px; height:auto; border:1px solid #ddd; border-radius:4px; cursor:pointer;" 
+									title="${__('Click to edit')}"
+								/>
+							</div>
 						</div>
 					`);
+					preview.find('img').on('click', () => {
+						show_body_map_dialog(frm, cfg.base_body_map);
+					});
 					fieldWrapper.append(preview);
 				}
 
