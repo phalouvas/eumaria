@@ -1,15 +1,25 @@
 # Copilot Instructions for `eumaria`
 
 ## Overview
-**eumaria** is a Frappe/ERPNext app for physiotherapy clinic customizations. It extends the Healthcare module's Patient Appointment with a group session flag that suppresses SMS confirmation/reminders and a weekly cloning job to copy flagged appointments from the previous week to the next.
+**eumaria** is a Frappe/ERPNext app for physiotherapy clinic customizations. It extends the Healthcare module's Patient Appointment with group session management and Patient Assessment with canvas-based body map annotation.
 
 ## Core Architecture
 
 ### Key DocTypes & Modules
 - **Patient Appointment** (extended via `eumaria`):
   - Custom fields: `is_group_session` (checkbox), `group_session_source` (hidden Link to Patient Appointment)
-  - Behavior: when `is_group_session=1`, skip confirmation SMS and reminder SMS; eligible appointments clone weekly from last week’s schedule to the next week
+  - Behavior: when `is_group_session=1`, skip confirmation SMS and reminder SMS; eligible appointments clone weekly from last week's schedule to the next week
   - `group_session_source` marks clones with their origin to prevent duplicates per source week
+
+- **Patient Assessment** (extended via `eumaria`):
+  - Custom field: `annotated_body_map` (Attach Image) - positioned after patient field, read-only when empty, editable when populated
+  - Client-side enhancement: Canvas-based drawing dialog with color palette, responsive viewport sizing, file replacement
+  - Property setters: `score` field made optional with default value 1; `comments` field visible in assessment sheet list view
+  - Print format: "Patient Assessment Body Map" shows description, annotated image, and assessment sheet with comments
+
+- **Patient Assessment Template** (extended via `eumaria`):
+  - Custom fields: `requires_body_map` (checkbox), `base_body_map` (Attach Image)
+  - When `requires_body_map=1`, Annotate/Edit Body Map button appears on Patient Assessment form
 
 ### Data Flows
 1. **Group Session Creation**:
@@ -25,14 +35,39 @@
   - Copied fields: patient, appointment_type, company, practitioner/department/service_unit (per `appointment_for`), appointment_date/time (+7d), duration, notes, referring_practitioner, therapy_plan, therapy_type, procedure_template, add_video_conferencing, `is_group_session`
   - Excluded/system-regenerated: name, status, invoiced, paid_amount, billing_item, ref_sales_invoice, event/google_meet_link, position_in_queue, reference links; `mode_of_payment` is intentionally left empty on clones
 
+4. **Body Map Annotation**:
+  - User selects Patient Assessment Template with `requires_body_map=1` and uploaded `base_body_map` image
+  - "Annotate Body Map" button appears in Patient Assessment form Actions menu (changes to "Edit Body Map" when annotation exists)
+  - Clicking button or preview thumbnail opens fullscreen canvas dialog with base image loaded
+  - Canvas sizes to 90% viewport width, 85% height, preserving base image aspect ratio (recommended 800×600 or 600×800 PNG)
+  - User draws with selected color (6-color palette: Black, Blue, Red, Yellow, Orange, Green); can change colors mid-drawing
+  - Clear button resets canvas to base image
+  - Save uploads PNG to `annotated_body_map` field; existing file deleted first via frappe.client.get_list + frappe.client.delete to prevent duplicate File records
+  - Preview thumbnail appears below field (clickable to reopen editor); field becomes editable to allow clearing via X button
+  - Print format renders assessment description, annotated image, and assessment sheet with scores/comments
+
 ## Key Files & Patterns
 
-- **`eumaria/physiotherapy/custom_fields.py`**: Runs at `after_install` and `after_migrate`; adds `is_group_session` and `group_session_source` fields to Patient Appointment
+- **`eumaria/physiotherapy/custom_fields.py`**: Runs at `after_install` and `after_migrate`; adds custom fields to Patient Appointment, Patient Assessment, Patient Assessment Template; creates property setters for score/comments fields; creates "Patient Assessment Body Map" print format; sets Patient Appointment default view to Calendar
+  - `execute()`: Main entry point, creates all custom fields
+  - `set_comments_in_list_view()`: Makes comments visible in Patient Assessment Sheet list view
+  - `make_score_field_optional()`: Sets score field `reqd=0` and `default=1` in Patient Assessment Sheet
+  - `create_or_update_patient_assessment_print_format()`: Creates/updates print format with body map and assessment sheet
+  - `set_default_patient_appointment_view()`: Forces Calendar view for Patient Appointment
+
+- **`eumaria/public/js/patient_assessment.js`**: Client-side enhancements for Patient Assessment form
+  - `refresh()`: Auto-fills assessment_datetime; toggles `annotated_body_map` read-only state; renders preview thumbnail; adds Annotate/Edit button
+  - `show_body_map_dialog()`: Opens fullscreen frappe.ui.Dialog with responsive canvas; loads base/existing image; handles mouse/touch/stylus drawing with color palette
+  - `attach_body_map()`: Deletes existing File record by file_url, uploads new PNG via frappe.client.attach_file
+  - Canvas: 90vw × 85vh dialog, dynamically sized canvas preserving image aspect ratio, 6-color picker, Clear button
+
 - **`eumaria/overrides/patient_appointment.py`**: Overrides core Patient Appointment to skip confirmation SMS for flagged records and mark reminders as sent
+
 - **`eumaria/events/patient_appointment.py`**:
   - `mark_group_session_reminded(doc, method=None)`: `validate` hook to set `reminded=1` for flagged records
-  - `clone_group_session_appointments()`: scheduled job to clone last week’s flagged appointments into next week
-- **`eumaria/eumaria/hooks.py`**: Declares `after_install`, `after_migrate`, `doc_events`, `scheduler_events`, and the override for Patient Appointment
+  - `clone_group_session_appointments()`: scheduled job to clone last week's flagged appointments into next week
+
+- **`eumaria/eumaria/hooks.py`**: Declares `after_install`, `after_migrate`, `doc_events`, `scheduler_events`, `doctype_js`, and the override for Patient Appointment
 
 ## Developer Workflow
 
@@ -57,9 +92,12 @@ bench --site eumariaphysio.localhost execute eumaria.events.patient_appointment.
 ```
 
 ### Extending Functionality
-- **New custom fields for Patient Appointment**: Add to `eumaria/physiotherapy/custom_fields.py` and update hooks
+- **New custom fields for Patient Appointment/Assessment**: Add to `eumaria/physiotherapy/custom_fields.py` `custom_fields` dict; run `bench migrate` to apply
 - **SMS flows**: Use override + `validate` hook patterns shown to gate sends
 - **Weekly duplication**: Extend the clone job or alter field whitelist in `eumaria/events/patient_appointment.py`
+- **Canvas drawing features**: Extend `patient_assessment.js` - add tools (eraser, line width picker, undo/redo), change canvas size calculation, add pen pressure support
+- **Body map templates**: Recommended PNG 800×600 (landscape) or 600×800 (portrait), light gray outlines, transparent/white background
+- **Print format customization**: Edit `create_or_update_patient_assessment_print_format()` HTML template in `custom_fields.py`
 
 ## Code Conventions
 
@@ -79,6 +117,11 @@ bench --site eumariaphysio.localhost execute eumaria.events.patient_appointment.
 - **Modify group session behavior**: Adjust clone whitelist or suppression logic in events/override files
 - **Extend invoice generation**: Add new billing methods if needed (none shipped currently)
 - **Update appointment title logic**: Modify via override if required
+- **Add body map annotation to other DocTypes**: Copy pattern from `patient_assessment.js`; create template DocType with `base_image` field, add `annotated_image` field to target DocType, register doctype_js in hooks
+- **Customize canvas colors**: Edit color palette array in `patient_assessment.js` toolbar HTML (data-color attributes and inline styles)
+- **Change canvas size**: Adjust `maxWidth` and `maxHeight` multipliers in `resizeCanvasToViewport()` function (currently 0.9 and 0.85)
+- **Add drawing tools**: Extend `draw()` function with additional canvas context methods (e.g., `ctx.lineWidth` for pen size, `ctx.globalCompositeOperation = 'destination-out'` for eraser)
+- **Modify field positioning**: Update `insert_after` in `custom_fields.py` and run `bench migrate`
 
 ## Testing Notes
 
@@ -86,6 +129,18 @@ bench --site eumariaphysio.localhost execute eumaria.events.patient_appointment.
   ```bash
   # Weekly clone job (executes Sunday automatically; manual run for testing):
   bench --site eumariaphysio.localhost execute eumaria.events.patient_appointment.clone_group_session_appointments
+  
+  # Clear cache after JS changes:
+  bench --site eumariaphysio.localhost clear-cache
   ```
 - Group session suppression runs on every Patient Appointment save; test with `is_group_session=1`
 - SMS flow depends on Healthcare Settings; suppression takes effect when the flag is set
+- Body map annotation:
+  - Create Patient Assessment Template with `requires_body_map=1` and uploaded `base_body_map` image
+  - Create Patient Assessment using template; verify Annotate button appears
+  - Test drawing with mouse/touch/stylus; change colors; use Clear button
+  - Save and verify File record created; preview appears; field becomes editable
+  - Reopen editor; verify existing annotation loads for editing
+  - Save again; verify old File deleted and new one created (check Files list)
+  - Test print format: verify annotated image and assessment sheet render correctly
+  - Test on mobile/tablet: verify canvas resizes on device rotation (may require dialog close/reopen)
