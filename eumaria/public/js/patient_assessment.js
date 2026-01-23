@@ -5,6 +5,9 @@ frappe.ui.form.on('Patient Assessment', {
 			frm.set_value('assessment_datetime', frappe.datetime.now_datetime());
 		}
 
+		// Make annotated_body_map field read-only when empty (force canvas use), editable when exists (allow clear)
+		frm.set_df_property('annotated_body_map', 'read_only', frm.doc.annotated_body_map ? 0 : 1);
+
 		// Show annotate/edit buttons and a small preview if an image exists
 		if (frm.doc.assessment_template) {
 			frappe.db.get_value('Patient Assessment Template', frm.doc.assessment_template, ['requires_body_map', 'base_body_map']).then(r => {
@@ -63,8 +66,17 @@ function show_body_map_dialog(frm, base_body_map_url) {
 	toolbar.style.marginBottom = '6px';
 	toolbar.innerHTML = `
 		<button class="btn btn-sm btn-secondary" data-action="clear">${__('Clear')}</button>
+		<span style="margin-left: 15px; margin-right: 5px;">${__('Color')}:</span>
+		<button class="btn btn-sm color-btn" data-color="#000000" style="background:#000000; width:30px; height:30px; border:2px solid #ddd; border-radius:4px; margin:0 2px;"></button>
+		<button class="btn btn-sm color-btn" data-color="#0066cc" style="background:#0066cc; width:30px; height:30px; border:2px solid #ddd; border-radius:4px; margin:0 2px;"></button>
+		<button class="btn btn-sm color-btn active" data-color="#d9534f" style="background:#d9534f; width:30px; height:30px; border:2px solid #333; border-radius:4px; margin:0 2px;"></button>
+		<button class="btn btn-sm color-btn" data-color="#ffc107" style="background:#ffc107; width:30px; height:30px; border:2px solid #ddd; border-radius:4px; margin:0 2px;"></button>
+		<button class="btn btn-sm color-btn" data-color="#ff6600" style="background:#ff6600; width:30px; height:30px; border:2px solid #ddd; border-radius:4px; margin:0 2px;"></button>
+		<button class="btn btn-sm color-btn" data-color="#28a745" style="background:#28a745; width:30px; height:30px; border:2px solid #ddd; border-radius:4px; margin:0 2px;"></button>
 	`;
 	wrapper.appendChild(toolbar);
+
+	let selectedColor = '#d9534f'; // Default red
 
 	const dialogCanvas = document.createElement('canvas');
 	dialogCanvas.style.border = '1px solid #ddd'; dialogCanvas.style.touchAction = 'none';
@@ -104,7 +116,7 @@ function show_body_map_dialog(frm, base_body_map_url) {
 	let drawing = false; let last = null;
 	const draw = (pt) => {
 		if (!drawing) return;
-		ctx.strokeStyle = '#d9534f'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+		ctx.strokeStyle = selectedColor; ctx.lineWidth = 2; ctx.lineCap = 'round';
 		ctx.beginPath();
 		ctx.moveTo(last.x, last.y);
 		ctx.lineTo(pt.x, pt.y);
@@ -135,6 +147,16 @@ function show_body_map_dialog(frm, base_body_map_url) {
 	toolbar.querySelector('[data-action="clear"]').addEventListener('click', () => {
 		ctx.clearRect(0, 0, dialogCanvas.width, dialogCanvas.height);
 		ctx.drawImage(bg, 0, 0, dialogCanvas.width, dialogCanvas.height);
+	});
+
+	// Color picker buttons
+	toolbar.querySelectorAll('.color-btn').forEach(btn => {
+		btn.addEventListener('click', () => {
+			selectedColor = btn.getAttribute('data-color');
+			// Update active state
+			toolbar.querySelectorAll('.color-btn').forEach(b => b.style.border = '2px solid #ddd');
+			btn.style.border = '2px solid #333';
+		});
 	});
 
 	d.show();
