@@ -84,6 +84,7 @@ app_license = "mit"
 
 # before_install = "eumaria.install.before_install"
 after_install = "eumaria.physiotherapy.custom_fields.execute"
+after_migrate = "eumaria.physiotherapy.custom_fields.execute"
 
 # Uninstallation
 # ------------
@@ -129,20 +130,28 @@ after_install = "eumaria.physiotherapy.custom_fields.execute"
 # ---------------
 # Override standard doctype classes
 
-# override_doctype_class = {
-# 	"ToDo": "custom_app.overrides.CustomToDo"
-# }
+override_doctype_class = {
+	"Patient Appointment": "eumaria.overrides.patient_appointment.PatientAppointment",
+}
 
 # Document Events
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {}
+doc_events = {
+	"Patient Appointment": {
+		"validate": "eumaria.events.patient_appointment.mark_group_session_reminded",
+	},
+}
 
 # Scheduled Tasks
 # ---------------
 
-scheduler_events = {}
+scheduler_events = {
+	"cron": {
+		"0 0 * * 0": ["eumaria.events.patient_appointment.clone_group_session_appointments"],
+	}
+}
 
 # Testing
 # -------
