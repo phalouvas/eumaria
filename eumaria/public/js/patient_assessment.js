@@ -74,7 +74,8 @@ function show_body_map_dialog(frm, base_body_map_url) {
 	toolbar.style.marginBottom = '6px';
 	toolbar.innerHTML = `
 		<button class="btn btn-sm btn-secondary" data-action="clear">${__('Clear')}</button>
-		<span style="margin-left: 15px; margin-right: 5px;">${__('Color')}:</span>
+		<button class="btn btn-sm" data-action="eraser" style="background:#f0f0f0; border:2px solid #ddd; margin-left:15px; margin-right:15px; padding:4px 8px;" title="Toggle eraser (E)">🗑️ ${__('Eraser')}</button>
+		<span style="margin-right: 5px;">${__('Color')}:</span>
 		<button class="btn btn-sm color-btn" data-color="#000000" style="background:#000000; width:30px; height:30px; border:2px solid #ddd; border-radius:4px; margin:0 2px;"></button>
 		<button class="btn btn-sm color-btn" data-color="#0066cc" style="background:#0066cc; width:30px; height:30px; border:2px solid #ddd; border-radius:4px; margin:0 2px;"></button>
 		<button class="btn btn-sm color-btn active" data-color="#d9534f" style="background:#d9534f; width:30px; height:30px; border:2px solid #333; border-radius:4px; margin:0 2px;"></button>
@@ -85,6 +86,8 @@ function show_body_map_dialog(frm, base_body_map_url) {
 	wrapper.appendChild(toolbar);
 
 	let selectedColor = '#d9534f'; // Default red
+	let drawingMode = 'pen'; // Track active tool: 'pen' or 'eraser'
+	let hasDrawing = false; // Track if any drawing has been made
 
 	const dialogCanvas = document.createElement('canvas');
 	dialogCanvas.style.border = '1px solid #ddd'; dialogCanvas.style.touchAction = 'none';
@@ -124,7 +127,21 @@ function show_body_map_dialog(frm, base_body_map_url) {
 	let drawing = false; let last = null;
 	const draw = (pt) => {
 		if (!drawing) return;
-		ctx.strokeStyle = selectedColor; ctx.lineWidth = 2; ctx.lineCap = 'round';
+		hasDrawing = true; // Mark that user has drawn something
+		
+		if (drawingMode === 'eraser') {
+			// Eraser mode: use destination-out to remove annotation pixels
+			ctx.globalCompositeOperation = 'destination-out';
+			ctx.strokeStyle = 'rgba(0,0,0,1)'; // Color doesn't matter for eraser, opacity does
+			ctx.lineWidth = 5; // 5px eraser for efficient removal
+		} else {
+			// Pen mode: normal drawing
+			ctx.globalCompositeOperation = 'source-over';
+			ctx.strokeStyle = selectedColor;
+			ctx.lineWidth = 2;
+		}
+		
+		ctx.lineCap = 'round';
 		ctx.beginPath();
 		ctx.moveTo(last.x, last.y);
 		ctx.lineTo(pt.x, pt.y);
@@ -152,9 +169,37 @@ function show_body_map_dialog(frm, base_body_map_url) {
 	dialogCanvas.addEventListener('touchmove', (e) => { draw(getPt(e)); e.preventDefault(); });
 	dialogCanvas.addEventListener('touchend', () => { drawing = false; last = null; });
 
+	// Keyboard shortcut for eraser toggle (E key)
+	document.addEventListener('keydown', (e) => {
+		if (e.key.toLowerCase() === 'e' && d.$wrapper.is(':visible')) {
+			e.preventDefault();
+			eraserBtn.click();
+		}
+	});
+
 	toolbar.querySelector('[data-action="clear"]').addEventListener('click', () => {
 		ctx.clearRect(0, 0, dialogCanvas.width, dialogCanvas.height);
 		ctx.drawImage(bg, 0, 0, dialogCanvas.width, dialogCanvas.height);
+	});
+
+	// Eraser button toggle
+	const eraserBtn = toolbar.querySelector('[data-action="eraser"]');
+	eraserBtn.addEventListener('click', () => {
+		drawing = false; // Stop current stroke
+		last = null;
+		drawingMode = drawingMode === 'eraser' ? 'pen' : 'eraser';
+		// Update button styling to show active tool
+		if (drawingMode === 'eraser') {
+			eraserBtn.style.border = '2px solid #333';
+			eraserBtn.style.fontWeight = 'bold';
+			// Disable color buttons when in eraser mode
+			toolbar.querySelectorAll('.color-btn').forEach(btn => btn.style.opacity = '0.5');
+		} else {
+			eraserBtn.style.border = '2px solid #ddd';
+			eraserBtn.style.fontWeight = 'normal';
+			// Re-enable color buttons when back in pen mode
+			toolbar.querySelectorAll('.color-btn').forEach(btn => btn.style.opacity = '1');
+		}
 	});
 
 	// Color picker buttons
@@ -165,6 +210,20 @@ function show_body_map_dialog(frm, base_body_map_url) {
 			toolbar.querySelectorAll('.color-btn').forEach(b => b.style.border = '2px solid #ddd');
 			btn.style.border = '2px solid #333';
 		});
+	});
+
+	// Auto-save on dialog close if drawing exists
+	d.$wrapper.on('hide', () => {
+		if (hasDrawing) {
+			const dataURL = canvas_to_png(dialogCanvas);
+			if (dataURL) {
+				attach_body_map(frm, dataURL).then(() => {
+					frm.reload_doc();
+				}).catch(() => {
+					// Silent failure; user can re-open and try again
+				});
+			}
+		}
 	});
 
 	d.show();
