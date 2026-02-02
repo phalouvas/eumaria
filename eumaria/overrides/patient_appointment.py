@@ -1,16 +1,119 @@
+import datetime
 import frappe
 from frappe import _
-from frappe.utils import get_datetime, now_datetime
+from frappe.utils import flt, get_datetime, get_time, getdate, now_datetime
 from healthcare.healthcare.doctype.patient_appointment import patient_appointment as core_patient_appointment
+from healthcare.healthcare.doctype.patient_appointment.patient_appointment import (
+	OverlapError,
+	MaximumCapacityError
+)
 
 
 class PatientAppointment(core_patient_appointment.PatientAppointment):
-	"""Custom Patient Appointment with group session SMS suppression."""
+	"""Custom Patient Appointment with group session SMS suppression and practitioner overlap allowed."""
 
 	def validate(self):
 		super().validate()
 		if getattr(self, "is_group_session", 0):
 			self.reminded = 1
+
+	def validate_overlaps(self):
+		"""
+		Override to allow practitioner to have multiple concurrent appointments.
+		Only prevent same patient from having overlapping appointments.
+		"""
+		if self.appointment_based_on_check_in:
+			if frappe.db.exists({
+				"doctype": "Patient Appointment",
+				"patient": self.patient,
+				"appointment_date": self.appointment_date,
+				"appointment_time": self.appointment_time,
+				"appointment_based_on_check_in": True,
+				"name": ["!=", self.name],
+			}):
+				frappe.throw(_("Patient already has an appointment booked for the same day!"), OverlapError)
+			return
+
+		if not self.patient:
+			return
+
+		end_time = datetime.datetime.combine(
+			getdate(self.appointment_date), get_time(self.appointment_time)
+		) + datetime.timedelta(minutes=flt(self.duration))
+
+		# Only check for PATIENT overlaps, not practitioner
+		overlapping_appointments = frappe.db.sql(
+			"""
+			SELECT
+				name, practitioner, patient, appointment_time, duration, service_unit
+			FROM
+				`tabPatient Appointment`
+			WHERE
+				appointment_date=%(appointment_date)s AND name!=%(name)s 
+				AND status NOT IN ("Closed", "Cancelled") AND
+				patient=%(patient)s AND
+				((appointment_time<%(appointment_time)s AND appointment_time + INTERVAL duration MINUTE>%(appointment_time)s) OR
+				(appointment_time>%(appointment_time)s AND appointment_time<%(end_time)s) OR
+				(appointment_time=%(appointment_time)s))
+			""",
+			{
+				"appointment_date": self.appointment_date,
+				"name": self.name,
+				"patient": self.patient,
+				"appointment_time": self.appointment_time,
+				"end_time": end_time.time(),
+			},
+			as_dict=True,
+		)
+
+		if overlapping_appointments:
+			frappe.throw(
+				_("Patient already has appointment {} at this time").format(
+					frappe.bold(", ".join([apt["name"] for apt in overlapping_appointments]))
+				),
+				OverlapError,
+			)
+
+		# Still validate service unit capacity if applicable
+		if self.service_unit:
+			allow_overlap, service_unit_capacity = frappe.get_value(
+				"Healthcare Service Unit", 
+				self.service_unit, 
+				["overlap_appointments", "service_unit_capacity"]
+			)
+			if allow_overlap and service_unit_capacity:
+				# Count appointments at this service unit during this time
+				su_appointments = frappe.db.sql(
+					"""
+					SELECT COUNT(*) as count
+					FROM `tabPatient Appointment`
+					WHERE
+						appointment_date=%(appointment_date)s AND name!=%(name)s
+						AND status NOT IN ("Closed", "Cancelled")
+						AND service_unit=%(service_unit)s AND
+						((appointment_time<%(appointment_time)s AND appointment_time + INTERVAL duration MINUTE>%(appointment_time)s) OR
+						(appointment_time>%(appointment_time)s AND appointment_time<%(end_time)s) OR
+						(appointment_time=%(appointment_time)s))
+					""",
+					{
+						"appointment_date": self.appointment_date,
+						"name": self.name,
+						"service_unit": self.service_unit,
+						"appointment_time": self.appointment_time,
+						"end_time": end_time.time(),
+					},
+					as_dict=True,
+				)
+				
+				count = su_appointments[0].count if su_appointments else 0
+				if count >= service_unit_capacity:
+					frappe.throw(
+						_("Not allowed, {} cannot exceed maximum capacity {}").format(
+							frappe.bold(self.service_unit), 
+							frappe.bold(service_unit_capacity)
+						),
+						MaximumCapacityError,
+					)
 
 	def after_insert(self):
 		self.update_prescription_details()
