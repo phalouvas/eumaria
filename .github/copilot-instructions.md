@@ -12,9 +12,9 @@
   - `group_session_source` marks clones with their origin to prevent duplicates per source week
 
 - **Patient Assessment** (extended via `eumaria`):
-  - Custom field: `annotated_body_map` (Attach Image) - positioned after patient field, read-only when empty, editable when populated
-  - Client-side enhancement: Canvas-based drawing dialog with color palette, responsive viewport sizing, file replacement
-  - Property setters: `score` field made optional with default value 1; `comments` field visible in assessment sheet list view
+  - Custom field: `annotated_body_map` (Attach Image) - positioned after assessment template, read-only when empty, editable when populated
+  - Client-side enhancement: Canvas-based drawing dialog with color palette + eraser, responsive viewport sizing, file replacement
+  - Property setters: `score` field default set to 1; `comments` field visible in assessment sheet list view
   - Print format: "Patient Assessment Body Map" shows description, annotated image, and assessment sheet with comments
 
 - **Patient Assessment Template** (extended via `eumaria`):
@@ -32,17 +32,17 @@
 
 3. **Weekly Cloning (Sundays)**:
   - Every Sunday, flagged appointments from the prior Mon–Sun are duplicated to the upcoming Mon–Sun at the same weekday/time
-  - Copied fields: patient, appointment_type, company, practitioner/department/service_unit (per `appointment_for`), appointment_date/time (+7d), duration, notes, referring_practitioner, therapy_plan, therapy_type, procedure_template, add_video_conferencing, `is_group_session`
-  - Excluded/system-regenerated: name, status, invoiced, paid_amount, billing_item, ref_sales_invoice, event/google_meet_link, position_in_queue, reference links; `mode_of_payment` is intentionally left empty on clones
+  - Copied fields: patient, appointment_type, company, practitioner, department, service_unit, appointment_date/time (+7d), duration, notes, referring_practitioner, therapy_plan, therapy_type, procedure_template, add_video_conferencing, `is_group_session`
+  - Skips cancelled or submitted appointments and avoids duplicates via `group_session_source` + target date check
 
 4. **Body Map Annotation**:
   - User selects Patient Assessment Template with `requires_body_map=1` and uploaded `base_body_map` image
-  - "Annotate Body Map" button appears in Patient Assessment form Actions menu (changes to "Edit Body Map" when annotation exists)
-  - Clicking button or preview thumbnail opens fullscreen canvas dialog with base image loaded
-  - Canvas sizes to 90% viewport width, 85% height, preserving base image aspect ratio (recommended 800×600 or 600×800 PNG)
-  - User draws with selected color (6-color palette: Black, Blue, Red, Yellow, Orange, Green); can change colors mid-drawing
+  - "Annotate Body Map" button appears on the Patient Assessment form (changes to "Edit Body Map" when annotation exists)
+  - Clicking button or preview thumbnail opens a large dialog with base image loaded
+  - Canvas sizes to 90% viewport width, 85% height (dialog width 95vw), preserving base image aspect ratio (recommended 800×600 or 600×800 PNG)
+  - User draws with selected color (6-color palette: Black, Blue, Red, Yellow, Orange, Green); can change colors mid-drawing; eraser tool available (toggle + E shortcut)
   - Clear button resets canvas to base image
-  - Save uploads PNG to `annotated_body_map` field; existing file deleted first via frappe.client.get_list + frappe.client.delete to prevent duplicate File records
+  - Save uploads PNG to `annotated_body_map` field; existing file deleted first via frappe.client.get_list + frappe.client.delete to prevent duplicate File records; auto-save on dialog close if drawing exists
   - Preview thumbnail appears below field (clickable to reopen editor); field becomes editable to allow clearing via X button
   - Print format renders assessment description, annotated image, and assessment sheet with scores/comments
 
@@ -51,15 +51,15 @@
 - **`eumaria/physiotherapy/custom_fields.py`**: Runs at `after_install` and `after_migrate`; adds custom fields to Patient Appointment, Patient Assessment, Patient Assessment Template; creates property setters for score/comments fields; creates "Patient Assessment Body Map" print format; sets Patient Appointment default view to Calendar
   - `execute()`: Main entry point, creates all custom fields
   - `set_comments_in_list_view()`: Makes comments visible in Patient Assessment Sheet list view
-  - `make_score_field_optional()`: Sets score field `reqd=0` and `default=1` in Patient Assessment Sheet
+  - `make_score_field_optional()`: Sets score field `default=1` in Patient Assessment Sheet
   - `create_or_update_patient_assessment_print_format()`: Creates/updates print format with body map and assessment sheet
   - `set_default_patient_appointment_view()`: Forces Calendar view for Patient Appointment
 
 - **`eumaria/public/js/patient_assessment.js`**: Client-side enhancements for Patient Assessment form
   - `refresh()`: Auto-fills assessment_datetime; toggles `annotated_body_map` read-only state; renders preview thumbnail; adds Annotate/Edit button
-  - `show_body_map_dialog()`: Opens fullscreen frappe.ui.Dialog with responsive canvas; loads base/existing image; handles mouse/touch/stylus drawing with color palette
-  - `attach_body_map()`: Deletes existing File record by file_url, uploads new PNG via frappe.client.attach_file
-  - Canvas: 90vw × 85vh dialog, dynamically sized canvas preserving image aspect ratio, 6-color picker, Clear button
+  - `show_body_map_dialog()`: Opens large frappe.ui.Dialog with responsive canvas; loads base/existing image; handles mouse/touch/stylus drawing with color palette + eraser
+  - `attach_body_map()`: Deletes existing File record by file_url, uploads new PNG via frappe.client.attach_file (private)
+  - Canvas: dialog width 95vw; canvas max 90vw × 85vh, dynamically sized preserving image aspect ratio, 6-color picker, Clear + Eraser tool, auto-save on close
 
 - **`eumaria/overrides/patient_appointment.py`**: Overrides core Patient Appointment to skip confirmation SMS for flagged records and mark reminders as sent
 

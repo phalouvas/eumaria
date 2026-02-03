@@ -39,7 +39,7 @@ frappe.ui.form.on('Patient Assessment', {
 				const label = frm.doc.annotated_body_map ? __('Edit Body Map') : __('Annotate Body Map');
 				frm.add_custom_button(label, () => {
 					show_body_map_dialog(frm, cfg.base_body_map);
-				}, 'Actions');
+				});
 			});
 		}
 	}
