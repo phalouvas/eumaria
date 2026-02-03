@@ -1,0 +1,6 @@
+/* Calendar overrides for Patient Appointment colors/time */
+.fc-daygrid-event .fc-event-main .fc-event-time {
+	display: block;
+	font-weight: normal;
+	margin-top: 2px;
+}

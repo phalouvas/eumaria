@@ -10,6 +10,7 @@
   - Custom fields: `is_group_session` (checkbox), `group_session_source` (hidden Link to Patient Appointment)
   - Behavior: when `is_group_session=1`, skip confirmation SMS and reminder SMS; eligible appointments clone weekly from last week's schedule to the next week
   - `group_session_source` marks clones with their origin to prevent duplicates per source week
+  - Calendar view enhancement: Color field from linked Appointment Type displays on calendar events (fixes ERPNext v16 regression where colors were ignored)
 
 - **Patient Assessment** (extended via `eumaria`):
   - Custom field: `annotated_body_map` (Attach Image) - positioned after assessment template, read-only when empty, editable when populated
@@ -55,6 +56,13 @@
   - `create_or_update_patient_assessment_print_format()`: Creates/updates print format with body map and assessment sheet
   - `set_default_patient_appointment_view()`: Forces Calendar view for Patient Appointment
 
+- **`eumaria/public/js/patient_appointment.js`**: Client-side enhancements for Patient Appointment form (SMS functionality only)
+
+- **`eumaria/public/js/patient_appointment_calendar.js`**: Calendar view configuration override to display Appointment Type colors correctly (fixes v16 regression)
+  - Overrides `frappe.views.calendar["Patient Appointment"]` with explicit `color: "color"` field mapping
+  - Uses Healthcare app's standard `get_events` method which LEFT JOINs Appointment Type to fetch color
+  - Colors display on calendar events; appointments without colors use Frappe default blue
+
 - **`eumaria/public/js/patient_assessment.js`**: Client-side enhancements for Patient Assessment form
   - `refresh()`: Auto-fills assessment_datetime; toggles `annotated_body_map` read-only state; renders preview thumbnail; adds Annotate/Edit button
   - `show_body_map_dialog()`: Opens large frappe.ui.Dialog with responsive canvas; loads base/existing image; handles mouse/touch/stylus drawing with color palette + eraser
@@ -67,7 +75,7 @@
   - `mark_group_session_reminded(doc, method=None)`: `validate` hook to set `reminded=1` for flagged records
   - `clone_group_session_appointments()`: scheduled job to clone last week's flagged appointments into next week
 
-- **`eumaria/eumaria/hooks.py`**: Declares `after_install`, `after_migrate`, `doc_events`, `scheduler_events`, `doctype_js`, and the override for Patient Appointment
+- **`eumaria/eumaria/hooks.py`**: Declares `after_install`, `after_migrate`, `doc_events`, `scheduler_events`, `doctype_js`, `doctype_calendar_js`, and the override for Patient Appointment
 
 ## Developer Workflow
 
