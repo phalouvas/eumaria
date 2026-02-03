@@ -25,7 +25,7 @@ app_license = "mit"
 # ------------------
 
 # include js, css files in header of desk.html
-# app_include_css = "/assets/eumaria/css/eumaria.css"
+app_include_css = "/assets/eumaria/css/eumaria.css"
 # app_include_js = "/assets/eumaria/js/eumaria.js"
 
 # include js, css files in header of web template
