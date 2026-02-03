@@ -18,4 +18,5 @@ frappe.views.calendar["Patient Appointment"] = {
 	},
 	get_events_method:
 		"healthcare.healthcare.doctype.patient_appointment.patient_appointment.get_events",
+	update_event_method: "eumaria.healthcare.patient_appointment.update_patient_appointment_from_calendar",
 };
