@@ -134,20 +134,15 @@ class PatientAppointment(core_patient_appointment.PatientAppointment):
 def send_appointment_sms(appointment_name: str) -> None:
 	"""Send confirmation SMS manually for a future appointment.
 
-	Respects Healthcare Settings toggle for confirmation messages and uses the
-	configured confirmation template. Marks the appointment as reminded to
-	avoid duplicate sends.
+	This is a manual action, so it works independently of Healthcare Settings.
+	Uses the configured confirmation template if available, otherwise sends a default message.
+	Marks the appointment as reminded to avoid duplicate sends.
 	"""
 
 	appointment = frappe.get_doc("Patient Appointment", appointment_name)
 
 	if not appointment.appointment_date:
 		raise frappe.ValidationError(_("Appointment date is required to send SMS."))
-
-	if not frappe.db.get_single_value("Healthcare Settings", "send_appointment_confirmation"):
-		raise frappe.ValidationError(
-			_("Appointment confirmation SMS is disabled in Healthcare Settings.")
-		)
 
 	appointment_datetime = get_datetime(
 		f"{appointment.appointment_date} {appointment.appointment_time or '00:00:00'}"
@@ -159,9 +154,10 @@ def send_appointment_sms(appointment_name: str) -> None:
 	if not patient_mobile:
 		raise frappe.ValidationError(_("Patient does not have a mobile number set."))
 
+	# Use configured message if available, otherwise use default
 	message = frappe.db.get_single_value("Healthcare Settings", "appointment_confirmation_msg")
 	if not message:
-		raise frappe.ValidationError(_("Appointment Confirmation Message is empty in Healthcare Settings."))
+		message = "Your appointment is scheduled for {appointment_date} at {appointment_time}."
 
 	try:
 		core_patient_appointment.send_message(appointment, message)
