@@ -163,3 +163,22 @@ bench --site eumariaphysio.localhost execute eumaria.events.patient_appointment.
   - Save again; verify old File deleted and new one created (check Files list)
   - Test print format: verify annotated image and assessment sheet render correctly
   - Test on mobile/tablet: verify canvas resizes on device rotation (may require dialog close/reopen)
+
+## Known Issues & Fixes
+
+### Frappe v16 Mobile FilterArea Bug
+**Issue**: On mobile/tablet devices, list and calendar views fail with `TypeError: Cannot read properties of undefined (reading 'hide')` in `FilterArea.setup_mobile()` (frappe/list/base_list.js line 652). This is a Frappe v16 core bug affecting all DocTypes, not specific to eumaria.
+
+**Root Cause**: The `FilterArea.setup_mobile()` method in Frappe v16 attempts to access properties that are undefined on mobile devices. The method is called during FilterArea construction when `frappe.is_mobile()` returns true.
+
+**Solution**: eumaria includes a global monkey patch that prevents the broken `setup_mobile()` call and provides a safe alternative implementation.
+
+**Implementation**:
+- **File**: `eumaria/public/js/filterarea_mobile_fix.js`
+- **Mechanism**: Patches `BaseList.setup_filter_area()` to temporarily override `frappe.is_mobile()` during FilterArea construction, preventing the buggy setup_mobile call. After FilterArea is created, manually implements mobile setup with proper null checks.
+- **Registration**: Loaded globally via `app_include_js` in hooks.py
+- **Scope**: Fixes all list/calendar views across all DocTypes (not just Patient Appointment)
+
+**Testing**: Verify mobile/tablet access to any list or calendar view works without console errors.
+
+**Upstream Issue**: This should be reported to frappe/frappe repository as it affects all v16 installations on mobile devices.
