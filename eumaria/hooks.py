@@ -154,7 +154,7 @@ doc_events = {
 
 scheduler_events = {
 	"cron": {
-		"0 0 * * 0": ["eumaria.events.patient_appointment.clone_group_session_appointments"],
+		"0 0 * * 4": ["eumaria.events.patient_appointment.clone_group_session_appointments"],
 	}
 }
 

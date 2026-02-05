@@ -11,18 +11,17 @@ def mark_group_session_reminded(doc, method=None):
 
 
 def clone_group_session_appointments():
-	"""Clone last week's group appointments into the upcoming week (runs Sundays)."""
+	"""Clone current week's group appointments into the upcoming week (runs Thursdays)."""
 	# Identify week boundaries (Mon–Sun)
 	today = getdate()
 	start_current_week = today - datetime.timedelta(days=today.weekday())
-	start_previous_week = start_current_week - datetime.timedelta(days=7)
-	end_previous_week = start_current_week - datetime.timedelta(days=1)
+	end_current_week = start_current_week + datetime.timedelta(days=6)
 
 	source_appointments = frappe.get_all(
 		"Patient Appointment",
 		filters={
 			"is_group_session": 1,
-			"appointment_date": ["between", (start_previous_week, end_previous_week)],
+			"appointment_date": ["between", (start_current_week, end_current_week)],
 			"status": ["!=", "Cancelled"],
 			"docstatus": ["<", 2],
 		},

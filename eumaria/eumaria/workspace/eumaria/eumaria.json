@@ -1,0 +1,335 @@
+{
+ "app": "eumaria",
+ "charts": [
+  {
+   "chart_name": "Patient Appointments",
+   "label": "Patient Appointments"
+  }
+ ],
+ "content": "[{\"id\":\"ROJTsLWMPJ\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Total Patients\",\"col\":3}},{\"id\":\"1Freqz9HKs\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Total Patients Admitted\",\"col\":3}},{\"id\":\"0QzRgTJg9-\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Open Appointments\",\"col\":3}},{\"id\":\"JYHln5MkAe\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Appointments to Bill\",\"col\":3}},{\"id\":\"dXZc0-JCHq\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Patient Appointments\",\"col\":12}},{\"id\":\"h1ZIOVv08U\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Shortcuts</b></span>\",\"col\":12}},{\"id\":\"DLWfN1tFbG\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Appointment\",\"col\":4}},{\"id\":\"QeEJqOpcUJ\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Patients\",\"col\":4}},{\"id\":\"PXHfg4rRzT\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Patients History\",\"col\":4}},{\"id\":\"pNhv4SwVp3\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"fMhA2aCpFx\",\"type\":\"card\",\"data\":{\"card_name\":\"Masters\",\"col\":4}},{\"id\":\"gToeSw90dZ\",\"type\":\"card\",\"data\":{\"card_name\":\"Consultation\",\"col\":4}},{\"id\":\"v_a-uZuvif\",\"type\":\"card\",\"data\":{\"card_name\":\"Rehabilitation and Physiotherapy\",\"col\":4}},{\"id\":\"DlEpFt_k4h\",\"type\":\"card\",\"data\":{\"card_name\":\"Reports\",\"col\":4}},{\"id\":\"xssY3DVzk1\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}}]",
+ "creation": "2026-02-05 08:22:48.092705",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "home",
+ "idx": 0,
+ "indicator_color": "green",
+ "is_hidden": 0,
+ "label": "Eumaria",
+ "link_type": "DocType",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Settings",
+   "link_count": 2,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Healthcare Settings",
+   "link_count": 0,
+   "link_to": "Healthcare Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Patient History Settings",
+   "link_count": 0,
+   "link_to": "Patient History Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Reports",
+   "link_count": 2,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Patients Unbilled",
+   "link_count": 0,
+   "link_to": "Patients Unbilled",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Patient Appointment",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Patient Appointment Analytics",
+   "link_count": 0,
+   "link_to": "Patient Appointment Analytics",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Consultation",
+   "link_count": 3,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Calendar",
+   "link_count": 0,
+   "link_to": "Patient Appointment",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Patient Assessment",
+   "link_count": 0,
+   "link_to": "Patient Assessment",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Patient Encounter",
+   "link_count": 0,
+   "link_to": "Patient Encounter",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Rehabilitation and Physiotherapy",
+   "link_count": 10,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Therapy Session",
+   "link_count": 0,
+   "link_to": "Therapy Session",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Therapy Type",
+   "link_count": 0,
+   "link_to": "Therapy Type",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Therapy Plan",
+   "link_count": 0,
+   "link_to": "Therapy Plan",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Exercise Type",
+   "link_count": 0,
+   "link_to": "Exercise Type",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Therapy Type",
+   "link_count": 0,
+   "link_to": "Therapy Type",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Therapy Plan Template",
+   "link_count": 0,
+   "link_to": "Therapy Plan Template",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Patient Assessment Template",
+   "link_count": 0,
+   "link_to": "Patient Assessment Template",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Patient History",
+   "link_count": 0,
+   "link_to": "patient_history",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Patient Progress",
+   "link_count": 0,
+   "link_to": "patient-progress",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Patient Medical Record",
+   "link_count": 0,
+   "link_to": "Patient Medical Record",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Masters",
+   "link_count": 4,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Patients",
+   "link_count": 0,
+   "link_to": "Patient",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Practitioners",
+   "link_count": 0,
+   "link_to": "Healthcare Practitioner",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Practitioner Availability",
+   "link_count": 0,
+   "link_to": "Practitioner Availability",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sales Invoice",
+   "link_count": 0,
+   "link_to": "Sales Invoice",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-02-05 11:21:40.980476",
+ "modified_by": "Administrator",
+ "module": "Eumaria",
+ "name": "Eumaria",
+ "number_cards": [
+  {
+   "label": "Total Patients",
+   "number_card_name": "Total Patients"
+  },
+  {
+   "label": "Total Patients Admitted",
+   "number_card_name": "Total Patients Admitted"
+  },
+  {
+   "label": "Open Appointments",
+   "number_card_name": "Open Appointments"
+  },
+  {
+   "label": "Appointments to Bill",
+   "number_card_name": "Appointments to Bill"
+  }
+ ],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [],
+ "sequence_id": 35.0,
+ "shortcuts": [
+  {
+   "color": "Grey",
+   "doc_view": "New",
+   "label": "New Appointment",
+   "link_to": "Patient Appointment",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Patients",
+   "link_to": "Patient",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Patients History",
+   "link_to": "patient_history",
+   "type": "Page"
+  }
+ ],
+ "title": "Eumaria",
+ "type": "Workspace"
+}
