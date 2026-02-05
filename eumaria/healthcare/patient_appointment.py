@@ -187,6 +187,12 @@ def _build_unavailability_events(start, end, filters):
 			if availability.note:
 				details.append(f"Note: {availability.note}")
 			description = " | ".join(details)
+			tooltip_parts = [title]
+			if availability.note:
+				tooltip_parts.append(f"Note: {availability.note}")
+			if availability.reason:
+				tooltip_parts.append(f"Reason: {availability.reason}")
+			tooltip = "\n".join(tooltip_parts)
 
 			unavailability_events.append(
 				{
@@ -195,10 +201,16 @@ def _build_unavailability_events(start, end, filters):
 					"start": start_dt,
 					"end": end_dt,
 					"allDay": 0,
+					"editable": 0,
+					"durationEditable": 0,
+					"startEditable": 0,
 					"color": "#efefef",
 					"textColor": "#444",
 					"className": ["unavailability-block"],
 					"description": description,
+					"tooltip": tooltip,
+					"note": availability.note,
+					"reason": availability.reason,
 					"scope": availability.scope,
 					"is_unavailability": 1,
 				}

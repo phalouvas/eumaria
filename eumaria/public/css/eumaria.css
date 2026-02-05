@@ -10,9 +10,23 @@
 	border: 1px dashed #c0c0c0;
 	color: #444;
 	opacity: 0.9;
-	pointer-events: none;
+	cursor: default;
 }
 
 .fc-event.unavailability-block .fc-event-main {
 	color: #444;
+}
+
+.fc-event.unavailability-block .unavailability-content {
+	line-height: 1.2;
+}
+
+.fc-event.unavailability-block .unavailability-title {
+	font-weight: 600;
+}
+
+.fc-event.unavailability-block .unavailability-note {
+	font-size: 11px;
+	margin-top: 2px;
+	color: #5a5a5a;
 }
