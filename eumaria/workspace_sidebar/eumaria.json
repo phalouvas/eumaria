@@ -53,9 +53,21 @@
    "link_type": "DocType",
    "show_arrow": 0,
    "type": "Section Break"
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "icon": "dashboard-list",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Dashboard",
+   "link_to": "Healthcare",
+   "link_type": "Dashboard",
+   "show_arrow": 0,
+   "type": "Link"
   }
  ],
- "modified": "2026-02-05 08:50:32.657347",
+ "modified": "2026-02-05 09:07:18.773170",
  "modified_by": "Administrator",
  "module": "Eumaria",
  "name": "Eumaria",
