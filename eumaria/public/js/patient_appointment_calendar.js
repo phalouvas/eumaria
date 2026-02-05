@@ -7,7 +7,7 @@ frappe.views.calendar["Patient Appointment"] = {
 		start: "start",
 		end: "end",
 		id: "name",
-		title: "patient",
+		title: "title",
 		allDay: "allDay",
 		color: "color", // Maps to color field from Appointment Type via get_events LEFT JOIN
 	},
@@ -16,7 +16,6 @@ frappe.views.calendar["Patient Appointment"] = {
 	options: {
 		eventDisplay: "block",
 	},
-	get_events_method:
-		"healthcare.healthcare.doctype.patient_appointment.patient_appointment.get_events",
+	get_events_method: "eumaria.healthcare.patient_appointment.get_events_with_availability",
 	update_event_method: "eumaria.healthcare.patient_appointment.update_patient_appointment_from_calendar",
 };

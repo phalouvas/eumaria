@@ -4,3 +4,15 @@
 	font-weight: normal;
 	margin-top: 2px;
 }
+
+.fc-event.unavailability-block {
+	background-color: #efefef;
+	border: 1px dashed #c0c0c0;
+	color: #444;
+	opacity: 0.9;
+	pointer-events: none;
+}
+
+.fc-event.unavailability-block .fc-event-main {
+	color: #444;
+}
