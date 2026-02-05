@@ -1,7 +1,7 @@
 {
  "app": "eumaria",
  "charts": [],
- "content": "[{\"id\":\"bxzmG1asOT\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Eumaria</span>\",\"col\":12}}]",
+ "content": "[{\"id\":\"ROJTsLWMPJ\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Total Patients\",\"col\":3}},{\"id\":\"1Freqz9HKs\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Total Patients Admitted\",\"col\":3}},{\"id\":\"0QzRgTJg9-\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Open Appointments\",\"col\":3}},{\"id\":\"JYHln5MkAe\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Appointments to Bill\",\"col\":3}}]",
  "creation": "2026-02-05 08:22:48.092705",
  "custom_blocks": [],
  "docstatus": 0,
@@ -15,11 +15,28 @@
  "label": "Eumaria",
  "link_type": "DocType",
  "links": [],
- "modified": "2026-02-05 08:37:59.697817",
+ "modified": "2026-02-05 09:13:35.209869",
  "modified_by": "Administrator",
  "module": "Eumaria",
  "name": "Eumaria",
- "number_cards": [],
+ "number_cards": [
+  {
+   "label": "Total Patients",
+   "number_card_name": "Total Patients"
+  },
+  {
+   "label": "Total Patients Admitted",
+   "number_card_name": "Total Patients Admitted"
+  },
+  {
+   "label": "Open Appointments",
+   "number_card_name": "Open Appointments"
+  },
+  {
+   "label": "Appointments to Bill",
+   "number_card_name": "Appointments to Bill"
+  }
+ ],
  "owner": "Administrator",
  "parent_page": "",
  "public": 1,
