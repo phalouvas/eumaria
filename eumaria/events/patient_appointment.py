@@ -92,6 +92,10 @@ def clone_group_session_appointments():
 					"source_appointment": source.name,
 					"target_date": target_date,
 				},
-				"Skipped group session clone due to overlap",
+				"Group session clone skipped",
+			)
+			frappe.log_error(
+				frappe.get_traceback(),
+				"Group session clone skipped: validation error",
 			)
 			continue
