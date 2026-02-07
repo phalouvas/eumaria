@@ -1,6 +1,10 @@
 import datetime
 
 import frappe
+from healthcare.healthcare.doctype.patient_appointment.patient_appointment import (
+	OverlapError,
+	MaximumCapacityError,
+)
 from frappe.utils import add_days, getdate
 
 
@@ -80,4 +84,18 @@ def clone_group_session_appointments():
 				"group_session_source": source.name,
 			}
 		)
-		clone.insert(ignore_permissions=True)
+		try:
+			clone.insert(ignore_permissions=True)
+		except (OverlapError, MaximumCapacityError):
+			frappe.log_error(
+				{
+					"source_appointment": source.name,
+					"target_date": target_date,
+				},
+				"Group session clone skipped",
+			)
+			frappe.log_error(
+				frappe.get_traceback(),
+				"Group session clone skipped: validation error",
+			)
+			continue
