@@ -242,6 +242,72 @@ def _build_unavailability_events(start, end, filters):
 	return unavailability_events
 
 
+def _get_holiday_dates_for_company(company, start_date, end_date):
+	if not company:
+		return []
+	if "hrms" in frappe.get_installed_apps():
+		from hrms.utils.holiday_list import get_assigned_holiday_list, get_holiday_dates_between
+
+		holiday_list = get_assigned_holiday_list(company, as_on=start_date)
+		if not holiday_list:
+			return []
+		return get_holiday_dates_between(
+			holiday_list=holiday_list,
+			start_date=start_date,
+			end_date=end_date,
+			skip_weekly_offs=False,
+		)
+
+	holiday_list = frappe.db.get_value("Company", company, "default_holiday_list")
+	if not holiday_list:
+		return []
+	return frappe.get_all(
+		"Holiday",
+		filters={"parent": holiday_list, "holiday_date": ["between", [start_date, end_date]]},
+		pluck="holiday_date",
+	)
+
+
+def _build_holiday_background_events(start, end, filters):
+	filters = _parse_filters(filters)
+	range_start = getdate(start)
+	range_end = getdate(end)
+	company = filters.get("company")
+	if not company:
+		company = (
+			frappe.defaults.get_user_default("Company")
+			or frappe.defaults.get_user_default("company")
+			or frappe.db.get_single_value("Global Defaults", "default_company")
+		)
+
+	holiday_dates = set(_get_holiday_dates_for_company(company, range_start, range_end))
+
+	if not holiday_dates:
+		return []
+
+	events = []
+	for holiday_date in sorted({getdate(item) for item in holiday_dates if item}):
+		events.append(
+			{
+				"name": f"holiday-{holiday_date}",
+				"title": "Holiday",
+				"start": holiday_date,
+				"end": add_days(holiday_date, 1),
+				"allDay": 1,
+				"editable": 0,
+				"durationEditable": 0,
+				"startEditable": 0,
+				"display": "background",
+				"className": ["holiday-background"],
+				"backgroundColor": "#e4e4e4",
+				"borderColor": "#e4e4e4",
+				"is_holiday": 1,
+			}
+		)
+
+	return events
+
+
 @frappe.whitelist()
 def get_events_with_availability(start, end, filters=None):
 	appointment_events = healthcare_get_events(start, end, filters)
@@ -249,4 +315,5 @@ def get_events_with_availability(start, end, filters=None):
 		item["title"] = item.get("patient") or item.get("title")
 
 	unavailability_events = _build_unavailability_events(start, end, filters)
-	return appointment_events + unavailability_events
+	holiday_events = _build_holiday_background_events(start, end, filters)
+	return appointment_events + unavailability_events + holiday_events
