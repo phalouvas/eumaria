@@ -311,8 +311,27 @@ def _build_holiday_background_events(start, end, filters):
 @frappe.whitelist()
 def get_events_with_availability(start, end, filters=None):
 	appointment_events = healthcare_get_events(start, end, filters)
+	patient_names = _unique_list([item.get("patient") for item in appointment_events if item.get("patient")])
+	patient_map = {}
+	if patient_names:
+		patient_rows = frappe.get_all(
+			"Patient",
+			filters={"name": ["in", patient_names]},
+			fields=["name", "patient_name", "dob", "uid", "mobile"],
+		)
+		patient_map = {row.get("name"): row for row in patient_rows}
+
 	for item in appointment_events:
-		item["title"] = item.get("patient") or item.get("title")
+		patient_name = item.get("patient")
+		patient_info = patient_map.get(patient_name) if patient_name else None
+		if patient_info:
+			item["patient_name"] = patient_info.get("patient_name") or patient_name
+			item["patient_dob"] = patient_info.get("dob")
+			item["patient_uid"] = patient_info.get("uid")
+			item["patient_mobile"] = patient_info.get("mobile")
+			item["title"] = item.get("patient_name") or patient_name or item.get("title")
+		else:
+			item["title"] = patient_name or item.get("title")
 
 	unavailability_events = _build_unavailability_events(start, end, filters)
 	holiday_events = _build_holiday_background_events(start, end, filters)

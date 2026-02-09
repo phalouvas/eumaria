@@ -35,3 +35,48 @@
 	background-color: #d4d4d4;
 	opacity: 1;
 }
+
+.eumaria-appointment-tooltip {
+	position: fixed;
+	z-index: 1050;
+	right: auto;
+	bottom: auto;
+	max-width: 260px;
+	padding: 8px 10px;
+	background: #ffffff;
+	border: 1px solid #d6d6d6;
+	border-radius: 6px;
+	box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+	font-size: 12px;
+	color: #2f2f2f;
+	pointer-events: none;
+}
+
+.eumaria-appointment-tooltip-title {
+	font-weight: 600;
+	font-size: 13px;
+	margin-bottom: 6px;
+}
+
+.eumaria-appointment-popover-row {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	column-gap: 8px;
+	line-height: 1.4;
+}
+
+.eumaria-appointment-popover-row + .eumaria-appointment-popover-row {
+	margin-top: 4px;
+}
+
+.eumaria-appointment-popover-row .label {
+	font-weight: 600;
+	color: #555;
+	white-space: nowrap;
+}
+
+.eumaria-appointment-popover-row .value {
+	text-align: left;
+	color: #222;
+	word-break: break-word;
+}
