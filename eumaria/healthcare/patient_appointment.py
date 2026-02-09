@@ -3,9 +3,6 @@ import json
 import datetime
 from frappe.utils import add_days, getdate, get_time
 from frappe.utils.data import flt
-from healthcare.healthcare.doctype.patient_appointment.patient_appointment import (
-	get_events as healthcare_get_events,
-)
 
 
 @frappe.whitelist()
@@ -308,9 +305,48 @@ def _build_holiday_background_events(start, end, filters):
 	return events
 
 
+def _safe_get_events(start, end, filters=None):
+	"""Fetch Patient Appointment events with safer condition concatenation."""
+	from frappe.desk.calendar import get_event_conditions
+	from frappe.desk.reportview import build_match_conditions
+
+	conditions = get_event_conditions("Patient Appointment", filters)
+	match_conditions = build_match_conditions("Patient Appointment")
+
+	if match_conditions:
+		if conditions:
+			conditions = f"{conditions} and {match_conditions}"
+		else:
+			conditions = f" and {match_conditions}"
+
+	data = frappe.db.sql(
+		f"""
+		select
+		`tabPatient Appointment`.name, `tabPatient Appointment`.patient,
+		`tabPatient Appointment`.practitioner, `tabPatient Appointment`.status,
+		`tabPatient Appointment`.duration,
+		timestamp(`tabPatient Appointment`.appointment_date, `tabPatient Appointment`.appointment_time) as 'start',
+		`tabAppointment Type`.color
+		from
+		`tabPatient Appointment`
+		left join `tabAppointment Type` on `tabPatient Appointment`.appointment_type=`tabAppointment Type`.name
+		where
+		(`tabPatient Appointment`.appointment_date between %(start)s and %(end)s)
+		and `tabPatient Appointment`.status != 'Cancelled' and `tabPatient Appointment`.docstatus < 2 {conditions}""",
+		{"start": start, "end": end},
+		as_dict=True,
+		update={"allDay": 0},
+	)
+
+	for item in data:
+		item.end = item.start + datetime.timedelta(minutes=item.duration)
+
+	return data
+
+
 @frappe.whitelist()
 def get_events_with_availability(start, end, filters=None):
-	appointment_events = healthcare_get_events(start, end, filters)
+	appointment_events = _safe_get_events(start, end, filters)
 	patient_names = _unique_list([item.get("patient") for item in appointment_events if item.get("patient")])
 	patient_map = {}
 	if patient_names:
