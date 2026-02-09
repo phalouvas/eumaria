@@ -42,6 +42,29 @@ def update_patient_appointment_from_calendar(args):
 def _parse_filters(filters):
 	if isinstance(filters, str):
 		filters = json.loads(filters)
+	if isinstance(filters, (list, tuple)):
+		parsed = {}
+		for item in filters:
+			if not isinstance(item, (list, tuple)) or len(item) < 4:
+				continue
+			field = item[1]
+			value = item[3]
+			if not field:
+				continue
+			if isinstance(value, (list, tuple)):
+				values = [v for v in value if v]
+			else:
+				values = [value] if value not in (None, "") else []
+			if not values:
+				continue
+			existing = parsed.get(field)
+			if existing is None:
+				parsed[field] = values if len(values) > 1 else values[0]
+			elif isinstance(existing, (list, tuple)):
+				parsed[field] = list(existing) + values
+			else:
+				parsed[field] = [existing] + values
+		return frappe._dict(parsed)
 	return frappe._dict(filters or {})
 
 
