@@ -30,3 +30,8 @@
 	margin-top: 2px;
 	color: #5a5a5a;
 }
+
+.fc-bg-event.holiday-background {
+	background-color: #d4d4d4;
+	opacity: 1;
+}
