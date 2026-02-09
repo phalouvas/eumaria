@@ -15,7 +15,7 @@ def mark_group_session_reminded(doc, method=None):
 
 
 def clone_group_session_appointments():
-	"""Clone current week's group appointments into the upcoming week (runs Thursdays)."""
+	"""Clone current week's group appointments four weeks ahead (runs Thursdays)."""
 	# Identify week boundaries (Mon–Sun)
 	today = getdate()
 	start_current_week = today - datetime.timedelta(days=today.weekday())
@@ -50,52 +50,53 @@ def clone_group_session_appointments():
 	)
 
 	for source in source_appointments:
-		target_date = add_days(source.appointment_date, 7)
+		for week_offset in (7, 14, 21, 28):
+			target_date = add_days(source.appointment_date, week_offset)
 
-		# Skip if a clone already exists for this source and target date
-		if frappe.db.exists(
-			"Patient Appointment",
-			{
-				"group_session_source": source.name,
-				"appointment_date": target_date,
-			},
-		):
-			continue
-
-		clone = frappe.new_doc("Patient Appointment")
-		clone.update(
-			{
-				"patient": source.patient,
-				"appointment_type": source.appointment_type,
-				"company": source.company,
-				"practitioner": source.practitioner,
-				"department": source.department,
-				"service_unit": source.service_unit,
-				"appointment_date": target_date,
-				"appointment_time": source.appointment_time,
-				"duration": source.duration,
-				"notes": source.notes,
-				"referring_practitioner": source.referring_practitioner,
-				"therapy_plan": source.therapy_plan,
-				"therapy_type": source.therapy_type,
-				"procedure_template": source.procedure_template,
-				"add_video_conferencing": source.add_video_conferencing,
-				"is_group_session": 1,
-				"group_session_source": source.name,
-			}
-		)
-		try:
-			clone.insert(ignore_permissions=True)
-		except (OverlapError, MaximumCapacityError):
-			frappe.log_error(
+			# Skip if a clone already exists for this source and target date
+			if frappe.db.exists(
+				"Patient Appointment",
 				{
-					"source_appointment": source.name,
-					"target_date": target_date,
+					"group_session_source": source.name,
+					"appointment_date": target_date,
 				},
-				"Group session clone skipped",
+			):
+				continue
+
+			clone = frappe.new_doc("Patient Appointment")
+			clone.update(
+				{
+					"patient": source.patient,
+					"appointment_type": source.appointment_type,
+					"company": source.company,
+					"practitioner": source.practitioner,
+					"department": source.department,
+					"service_unit": source.service_unit,
+					"appointment_date": target_date,
+					"appointment_time": source.appointment_time,
+					"duration": source.duration,
+					"notes": source.notes,
+					"referring_practitioner": source.referring_practitioner,
+					"therapy_plan": source.therapy_plan,
+					"therapy_type": source.therapy_type,
+					"procedure_template": source.procedure_template,
+					"add_video_conferencing": source.add_video_conferencing,
+					"is_group_session": 1,
+					"group_session_source": source.name,
+				}
 			)
-			frappe.log_error(
-				frappe.get_traceback(),
-				"Group session clone skipped: validation error",
-			)
-			continue
+			try:
+				clone.insert(ignore_permissions=True)
+			except (OverlapError, MaximumCapacityError):
+				frappe.log_error(
+					{
+						"source_appointment": source.name,
+						"target_date": target_date,
+					},
+					"Group session clone skipped",
+				)
+				frappe.log_error(
+					frappe.get_traceback(),
+					"Group session clone skipped: validation error",
+				)
+				continue
