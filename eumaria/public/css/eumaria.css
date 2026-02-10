@@ -80,3 +80,7 @@
 	color: #222;
 	word-break: break-word;
 }
+
+.fc .fc-scrollgrid-liquid {
+	height: calc(100vh - 150px) !important;
+}
