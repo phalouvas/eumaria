@@ -58,6 +58,7 @@ def execute():
 	set_comments_in_list_view()
 	make_score_field_optional()
 	create_or_update_patient_assessment_print_format()
+	set_practitioner_ignore_user_permissions()
 
 	set_default_patient_appointment_view()
 
@@ -85,6 +86,17 @@ def set_default_patient_appointment_view():
 		"Calendar",
 		"Select",
 		for_doctype=True,
+	)
+
+
+def set_practitioner_ignore_user_permissions():
+	"""Ensure practitioners can see all appointments regardless of user permissions."""
+	make_property_setter(
+		"Patient Appointment",
+		"practitioner",
+		"ignore_user_permissions",
+		1,
+		"Check",
 	)
 
 
