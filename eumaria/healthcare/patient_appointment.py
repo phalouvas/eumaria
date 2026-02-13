@@ -319,6 +319,9 @@ def _safe_get_events(start, end, filters=None):
 		else:
 			conditions = f" and {match_conditions}"
 
+	if conditions:
+		conditions = conditions.replace("%", "%%")
+
 	data = frappe.db.sql(
 		f"""
 		select
