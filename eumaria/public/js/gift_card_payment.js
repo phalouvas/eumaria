@@ -71,7 +71,8 @@ eumaria.gift_card.update_gift_card_filter = function(frm) {
 						filters: {
 							customer: r.message.customer,
 							disabled: 0,
-							docstatus: 1
+							docstatus: 1,
+							remaining_amount: [">", 0]  // Only show gift cards with positive balance
 						}
 					};
 				};
@@ -299,7 +300,8 @@ eumaria.gift_card.show_payment_dialog = function(frm, fields) {
 						filters: {
 							customer: r.message.customer,
 							disabled: 0,
-							docstatus: 1
+							docstatus: 1,
+							remaining_amount: [">", 0]  // Only show gift cards with positive balance
 						}
 					};
 				};
