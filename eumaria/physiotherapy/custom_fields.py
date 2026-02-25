@@ -113,7 +113,16 @@ def set_gift_card_field_properties():
 		"eval:!doc.use_gift_card && !doc.invoiced",
 		"Text",
 	)
-	
+
+	# Make mode_of_payment conditionally mandatory (only when not using gift card)
+	make_property_setter(
+		"Patient Appointment",
+		"mode_of_payment",
+		"mandatory_depends_on",
+		"eval:!doc.use_gift_card && !doc.invoiced",
+		"Text",
+	)
+
 	# Make paid_amount field depend on use_gift_card
 	make_property_setter(
 		"Patient Appointment",
@@ -122,12 +131,30 @@ def set_gift_card_field_properties():
 		"eval:!doc.use_gift_card && !doc.invoiced",
 		"Text",
 	)
-	
+
+	# Make paid_amount conditionally mandatory (only when not using gift card)
+	make_property_setter(
+		"Patient Appointment",
+		"paid_amount",
+		"mandatory_depends_on",
+		"eval:!doc.use_gift_card && !doc.invoiced",
+		"Text",
+	)
+
 	# Make billing_item field depend on use_gift_card
 	make_property_setter(
 		"Patient Appointment",
 		"billing_item",
 		"depends_on",
+		"eval:!doc.use_gift_card && !doc.invoiced",
+		"Text",
+	)
+
+	# Make billing_item conditionally mandatory (only when not using gift card)
+	make_property_setter(
+		"Patient Appointment",
+		"billing_item",
+		"mandatory_depends_on",
 		"eval:!doc.use_gift_card && !doc.invoiced",
 		"Text",
 	)

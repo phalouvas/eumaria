@@ -109,7 +109,9 @@ eumaria.gift_card.make_registration = function(frm, automate_invoicing) {
 			fieldname: "mode_of_payment",
 			fieldtype: "Link",
 			options: "Mode of Payment",
-			reqd: 1,
+			reqd: 0,
+			depends_on: "eval:!doc.use_gift_card",
+			mandatory_depends_on: "eval:!doc.use_gift_card",
 		},
 		{
 			fieldtype: "Column Break",
@@ -144,7 +146,9 @@ eumaria.gift_card.make_registration = function(frm, automate_invoicing) {
 			fieldname: "gift_card",
 			fieldtype: "Link",
 			options: "Eumaria Gift Card",
+			reqd: 0,
 			depends_on: "eval:doc.use_gift_card",
+			mandatory_depends_on: "eval:doc.use_gift_card",
 			description: __("Select gift card for payment"),
 		},
 		{
@@ -226,13 +230,32 @@ eumaria.gift_card.show_payment_dialog = function(frm, fields) {
 		fields: fields,
 		primary_action_label: "Create Invoice",
 		primary_action: async function(values) {
+			// Validate payment method selection
+			if (!values.use_gift_card && !values.mode_of_payment) {
+				frappe.msgprint({
+					title: __("Payment Method Required"),
+					message: __("Please select either a Mode of Payment or use a Gift Card."),
+					indicator: "red"
+				});
+				return;
+			}
+
+			if (values.use_gift_card && !values.gift_card) {
+				frappe.msgprint({
+					title: __("Gift Card Required"),
+					message: __("Please select a gift card when using gift card payment."),
+					indicator: "red"
+				});
+				return;
+			}
+
 			// Validate gift card if used
 			if (values.use_gift_card && values.gift_card) {
 				const validation = await eumaria.gift_card.validate_gift_card_in_dialog(
-					values.gift_card, 
+					values.gift_card,
 					values.total_payable
 				);
-				
+
 				if (!validation.valid) {
 					frappe.msgprint({
 						title: __("Gift Card Validation Failed"),
@@ -426,6 +449,18 @@ eumaria.gift_card.get_gift_card_balance = async function(gift_card) {
 	});
 };
 
+// Revalidate gift card after discount change
+eumaria.gift_card.revalidate_gift_card_on_discount_change = function(d) {
+	const gift_card = d.get_value("gift_card");
+	const use_gift_card = d.get_value("use_gift_card");
+	const total_payable = d.get_value("total_payable");
+
+	if (use_gift_card && gift_card && total_payable) {
+		// Trigger gift card validation
+		d.fields_dict.gift_card.df.onchange();
+	}
+};
+
 // Validate discount (copied from original)
 eumaria.gift_card.validate_discount = function(d, field) {
 	let message = "";
@@ -452,6 +487,8 @@ eumaria.gift_card.validate_discount = function(d, field) {
 				total_payable: consultation_charge - discount_amount,
 			}).then(() => {
 				delete d.dialog_data.via_discount_percentage;
+			}).then(() => {
+				eumaria.gift_card.revalidate_gift_card_on_discount_change(d);
 			});
 		}
 	} else if (field === "discount_amount") {
@@ -465,6 +502,8 @@ eumaria.gift_card.validate_discount = function(d, field) {
 				d.set_values({
 					discount_percentage: discount_percentage,
 					total_payable: consultation_charge - discount_amount,
+				}).then(() => {
+					eumaria.gift_card.revalidate_gift_card_on_discount_change(d);
 				});
 			}
 		}

@@ -44,14 +44,15 @@ def get_gift_cards_for_customer(customer: str) -> list:
 
 
 @frappe.whitelist()
-def validate_gift_card(gift_card: str, amount: float) -> dict:
+def validate_gift_card(gift_card: str, amount: float, skip_balance_check: bool = False) -> dict:
     """
     Validate if a gift card can be used for a payment.
-    
+
     Args:
         gift_card: Gift card name
         amount: Amount to pay
-        
+        skip_balance_check: If True, skip balance validation (only check status, dates, etc.)
+
     Returns:
         Dict with validation result and message
     """
@@ -77,9 +78,9 @@ def validate_gift_card(gift_card: str, amount: float) -> dict:
             return {"valid": False, "message": _("Gift card is not yet valid")}
         
         # Check balance
-        if flt(doc.remaining_amount) < amount:
+        if not skip_balance_check and flt(doc.remaining_amount) < amount:
             return {
-                "valid": False, 
+                "valid": False,
                 "message": _("Insufficient balance. Available: {0}, Required: {1}").format(
                     doc.remaining_amount, amount
                 )
@@ -115,8 +116,15 @@ def allocate_gift_card(gift_card: str, amount: float, sales_invoice: str = None,
     """
     try:
         amount = flt(amount)
+        if amount <= 0:
+            return {
+                "success": True,
+                "message": _("No allocation needed for zero or negative amount"),
+                "new_balance": frappe.get_cached_value("Eumaria Gift Card", gift_card, "remaining_amount")
+            }
+
         doc = frappe.get_doc("Eumaria Gift Card", gift_card)
-        
+
         # Validate before allocation
         validation = validate_gift_card(gift_card, amount)
         if not validation.get("valid"):
@@ -265,9 +273,18 @@ def invoice_appointment_with_gift_card(appointment_name: str, discount_percentag
     try:
         appointment_doc = frappe.get_doc("Patient Appointment", appointment_name)
         
+        # Compute discounted amount
+        discount_amt = flt(discount_amount)
+        if not discount_amt and discount_percentage:
+            discount_amt = flt(appointment_doc.paid_amount) * flt(discount_percentage) / 100
+
+        payable_amount = flt(appointment_doc.paid_amount) - discount_amt
+        if payable_amount < 0:
+            payable_amount = 0
+
         # Validate gift card if provided
         if gift_card:
-            validation = validate_gift_card(gift_card, appointment_doc.paid_amount)
+            validation = validate_gift_card(gift_card, payable_amount)
             if not validation.get("valid"):
                 return {
                     "success": False,
@@ -282,7 +299,7 @@ def invoice_appointment_with_gift_card(appointment_name: str, discount_percentag
         if gift_card and appointment_doc.ref_sales_invoice:
             allocation_result = allocate_gift_card(
                 gift_card=gift_card,
-                amount=appointment_doc.paid_amount,
+                amount=payable_amount,
                 sales_invoice=appointment_doc.ref_sales_invoice,
                 appointment=appointment_name
             )
@@ -292,7 +309,7 @@ def invoice_appointment_with_gift_card(appointment_name: str, discount_percentag
                 appointment_doc.db_set({
                     "use_gift_card": 1,
                     "selected_gift_card": gift_card,
-                    "gift_card_allocated_amount": appointment_doc.paid_amount
+                    "gift_card_allocated_amount": payable_amount
                 })
                 
                 return {

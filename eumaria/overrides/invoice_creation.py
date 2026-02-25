@@ -161,7 +161,7 @@ def validate_appointment_before_save(doc, method):
     if doc.use_gift_card and doc.selected_gift_card and doc.paid_amount:
         # Validate gift card balance
         from eumaria.api.gift_card import validate_gift_card
-        validation = validate_gift_card(doc.selected_gift_card, doc.paid_amount)
+        validation = validate_gift_card(doc.selected_gift_card, doc.paid_amount, skip_balance_check=True)
         
         if not validation.get("valid"):
             frappe.throw(validation.get("message"))
