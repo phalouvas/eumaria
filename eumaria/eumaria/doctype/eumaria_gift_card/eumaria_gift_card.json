@@ -54,6 +54,7 @@
    "fieldtype": "Column Break"
   },
   {
+    "default": "Today",
    "fieldname": "starts_on",
    "fieldtype": "Date",
    "in_list_view": 1,
