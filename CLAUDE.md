@@ -4,7 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**eumaria** is a Frappe/ERPNext application for physiotherapy clinic customizations. It extends the Healthcare module's Patient Appointment with group session management and Patient Assessment with canvas-based body map annotation.
+**eumaria** is a Frappe/ERPNext application for physiotherapy clinic customizations. It extends the Healthcare module with:
+- Group session management for Patient Appointment
+- Canvas-based body map annotation for Patient Assessment
+- **Gift card payment integration** for appointment payments
 
 ## Development Environment
 
@@ -56,6 +59,14 @@ This app follows Frappe's extension patterns:
 4. **Scheduled Tasks**: Cron jobs defined in `scheduler_events`
 5. **Frontend Controllers**: JavaScript files attached to doctypes via `doctype_js` and `doctype_calendar_js`
 
+### Gift Card Payment Integration Pattern
+The gift card payment system follows these patterns:
+1. **Custom Field Extension**: Gift card fields added to Patient Appointment doctype
+2. **API Endpoints**: Server-side gift card operations in `eumaria/api/gift_card.py`
+3. **Method Overrides**: `invoice_appointment` and `cancel_appointment` overridden for gift card handling
+4. **JavaScript Monkey-patching**: Payment dialog extended with gift card UI
+5. **Document Events**: Validation and cancellation hooks for gift card balance management
+
 ### Core Modules
 
 1. **Physiotherapy Module** (`eumaria/physiotherapy/`):
@@ -67,6 +78,7 @@ This app follows Frappe's extension patterns:
    - `PatientAppointment` class override for SMS suppression and overlap validation
    - Allows practitioner concurrency for group sessions
    - Manual SMS sending via whitelist method
+   - **Invoice creation and cancellation** with gift card payment support
 
 3. **Events** (`eumaria/events/`):
    - Group session reminder marking on validation
@@ -78,6 +90,13 @@ This app follows Frappe's extension patterns:
    - `patient_assessment.js`: Canvas-based body map annotation with color palette
    - `patient_appointment_calendar.js`: Calendar view fixes for v16
    - `filterarea_mobile_fix.js`: Global monkey patch for Frappe v16 mobile bug
+   - **`gift_card_payment.js`**: Payment dialog extension with gift card UI
+
+5. **Gift Card Payment Module** (`eumaria/api/`, `eumaria/overrides/invoice_creation.py`):
+   - API endpoints for gift card validation, allocation, and restoration
+   - Invoice creation override with gift card payment support
+   - Cancellation handling with balance restoration
+   - Client-side payment dialog extension with gift card UI
 
 ### Key Integration Points
 
@@ -87,11 +106,18 @@ This app follows Frappe's extension patterns:
 - Uses Healthcare Settings for SMS configuration
 - Integrates with Practitioner Availability
 
+**With Eumaria Gift Card Doctype:**
+- Links Patient Appointment to Eumaria Gift Card records
+- Validates gift card status (active, not expired, sufficient balance)
+- Filters gift cards by patient's customer for security
+- Maintains gift card balance tracking and allocation history
+
 **With Frappe Core:**
 - Uses Frappe's hook system (`after_install`, `after_migrate`, `doc_events`, `scheduler_events`)
-- Leverages document events (`validate`, `after_insert`)
+- Leverages document events (`validate`, `after_insert`, `on_cancel`)
 - Implements whitelist methods for API endpoints
 - Uses property setters for field customization
+- Monkey-patches existing payment dialog functions
 
 ## Development Workflow
 
@@ -111,6 +137,12 @@ This app follows Frappe's extension patterns:
 - Canvas sizing: `maxWidth` (0.9) and `maxHeight` (0.85) multipliers
 - File management: Existing files deleted before new upload
 
+### Adding Gift Card Payment Support
+1. Gift card fields automatically added via custom fields migration
+2. API endpoints provide server-side validation and allocation
+3. Payment dialog extended via JavaScript monkey-patching
+4. Invoice creation and cancellation overrides handle gift card transactions
+
 ### Testing Key Features
 
 **Group Sessions:**
@@ -123,6 +155,13 @@ This app follows Frappe's extension patterns:
 2. Create Patient Assessment using template
 3. Click "Annotate Body Map" button to open canvas
 4. Draw with different colors, save, verify preview appears
+
+**Gift Card Payments:**
+1. Create Eumaria Gift Card with sufficient balance
+2. Create Patient Appointment with gift card payment option
+3. Validate gift card balance before invoice creation
+4. Test invoice creation with gift card allocation
+5. Test cancellation to verify balance restoration
 
 ## Code Conventions
 
@@ -146,7 +185,10 @@ This app follows Frappe's extension patterns:
 3. **`eumaria/overrides/patient_appointment.py`** - Core behavior overrides
 4. **`eumaria/public/js/patient_assessment.js`** - Canvas-based body map implementation
 5. **`eumaria/events/patient_appointment.py`** - Business logic and scheduled jobs
-6. **`.github/copilot-instructions.md`** - Detailed architectural documentation
+6. **`eumaria/api/gift_card.py`** - Gift card API endpoints and business logic
+7. **`eumaria/overrides/invoice_creation.py`** - Invoice and cancellation overrides with gift card support
+8. **`eumaria/public/js/gift_card_payment.js`** - Payment dialog extension with gift card UI
+9. **`.github/copilot-instructions.md`** - Detailed architectural documentation
 
 ## Known Issues & Solutions
 
@@ -160,6 +202,12 @@ This app follows Frappe's extension patterns:
 - Issue: Appointment Type colors not displaying on calendar
 - Solution: Override in `patient_appointment_calendar.js` with explicit `color: "color"` mapping
 
+**Gift Card Payment Integration:**
+- Issue: Gift card and regular payment method mutual exclusivity
+- Solution: Field dependencies and validation ensure only one payment method is used
+- Issue: Gift card balance restoration on cancellation
+- Solution: `on_sales_invoice_cancel` hook automatically restores balance
+
 ## Migration & Deployment
 
 **After Code Changes:**
@@ -170,8 +218,44 @@ bench --site [site-name] clear-cache
 
 **Custom Field Updates:**
 - Changes to `custom_fields.py` require `bench migrate`
-- Property setters applied during migration
+- Property setters for field dependencies applied during migration
 
 **JavaScript Changes:**
 - Clear cache after modifying JS files: `bench --site [site-name] clear-cache`
 - Pre-commit hooks ensure code quality
+
+**After Gift Card Implementation:**
+```bash
+# Apply custom fields for gift card payment
+bench --site [site-name] migrate
+
+# Clear cache for JavaScript changes
+bench --site [site-name] clear-cache
+
+# Test gift card payment flow
+# 1. Create gift card with balance
+# 2. Create appointment with gift card payment
+# 3. Validate invoice creation with gift card allocation
+# 4. Test cancellation balance restoration
+```
+
+### Testing Gift Card Payment Flow
+
+**Testing Commands:**
+```bash
+# Test gift card validation
+bench --site [site-name] execute eumaria.api.gift_card.validate_gift_card --kwargs '{"gift_card": "GC-001", "amount": 100}'
+
+# Test gift card allocation
+bench --site [site-name] execute eumaria.api.gift_card.allocate_gift_card --kwargs '{"gift_card": "GC-001", "amount": 100, "appointment": "APP-001"}'
+
+# Test appointment invoice with gift card
+bench --site [site-name] execute eumaria.overrides.invoice_creation.invoice_appointment --kwargs '{"appointment_name": "APP-001"}'
+
+# Test gift card balance restoration
+bench --site [site-name] execute eumaria.api.gift_card.restore_gift_card --kwargs '{"gift_card": "GC-001", "amount": 100}'
+```
+
+**Gift Card Field Updates:**
+- Gift card fields added via `custom_fields.py` require `bench migrate`
+- Property setters for field dependencies applied during migration
