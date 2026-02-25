@@ -145,11 +145,7 @@ override_doctype_class = {
 
 doc_events = {
 	"Patient Appointment": {
-		"validate": [
-			"eumaria.events.patient_appointment.mark_group_session_reminded",
-			"eumaria.overrides.invoice_creation.validate_appointment_before_save"
-		],
-		"before_save": "eumaria.overrides.invoice_creation.validate_appointment_before_save",
+		"validate": ["eumaria.events.patient_appointment.mark_group_session_reminded"],
 	},
 	"Sales Invoice": {
 		"on_cancel": "eumaria.overrides.invoice_creation.on_sales_invoice_cancel",

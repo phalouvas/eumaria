@@ -71,8 +71,7 @@ eumaria.gift_card.update_gift_card_filter = function(frm) {
 						filters: {
 							customer: r.message.customer,
 							disabled: 0,
-							docstatus: 1,
-							remaining_amount: [">", 0]  // Only show gift cards with positive balance
+							docstatus: 1
 						}
 					};
 				};
@@ -230,6 +229,15 @@ eumaria.gift_card.show_payment_dialog = function(frm, fields) {
 		fields: fields,
 		primary_action_label: "Create Invoice",
 		primary_action: async function(values) {
+			if (values.use_gift_card && values.mode_of_payment) {
+				frappe.msgprint({
+					title: __("Payment Method Conflict"),
+					message: __("Please choose either Gift Card or Mode of Payment, not both."),
+					indicator: "red"
+				});
+				return;
+			}
+
 			// Validate payment method selection
 			if (!values.use_gift_card && !values.mode_of_payment) {
 				frappe.msgprint({
@@ -260,6 +268,15 @@ eumaria.gift_card.show_payment_dialog = function(frm, fields) {
 					frappe.msgprint({
 						title: __("Gift Card Validation Failed"),
 						message: validation.message,
+						indicator: "red"
+					});
+					return;
+				}
+
+				if ((Number(validation.remaining_amount) || 0) < (Number(values.total_payable) || 0)) {
+					frappe.msgprint({
+						title: __("Insufficient Gift Card Balance"),
+						message: __("Gift card must fully cover the total payable amount."),
 						indicator: "red"
 					});
 					return;
@@ -323,8 +340,7 @@ eumaria.gift_card.show_payment_dialog = function(frm, fields) {
 						filters: {
 							customer: r.message.customer,
 							disabled: 0,
-							docstatus: 1,
-							remaining_amount: [">", 0]  // Only show gift cards with positive balance
+							docstatus: 1
 						}
 					};
 				};

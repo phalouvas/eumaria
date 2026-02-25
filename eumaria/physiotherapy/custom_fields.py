@@ -119,7 +119,7 @@ def set_gift_card_field_properties():
 		"Patient Appointment",
 		"mode_of_payment",
 		"mandatory_depends_on",
-		"eval:!doc.use_gift_card && !doc.invoiced",
+		"",
 		"Text",
 	)
 
@@ -137,7 +137,7 @@ def set_gift_card_field_properties():
 		"Patient Appointment",
 		"paid_amount",
 		"mandatory_depends_on",
-		"eval:!doc.use_gift_card && !doc.invoiced",
+		"",
 		"Text",
 	)
 
@@ -155,7 +155,7 @@ def set_gift_card_field_properties():
 		"Patient Appointment",
 		"billing_item",
 		"mandatory_depends_on",
-		"eval:!doc.use_gift_card && !doc.invoiced",
+		"",
 		"Text",
 	)
 

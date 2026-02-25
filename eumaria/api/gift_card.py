@@ -4,7 +4,32 @@
 import frappe
 from frappe import _
 from frappe.utils import flt, getdate, nowdate
-from frappe.model.document import Document
+
+
+def get_available_gift_card_amount(gift_card_doc) -> float:
+    """Return currently available amount from linked Payment Entry advance."""
+    if not gift_card_doc.payment_entry:
+        return flt(gift_card_doc.remaining_amount)
+
+    unallocated_amount, docstatus = frappe.db.get_value(
+        "Payment Entry", gift_card_doc.payment_entry, ["unallocated_amount", "docstatus"]
+    ) or (0, 0)
+
+    if docstatus != 1:
+        return 0
+
+    return flt(unallocated_amount)
+
+
+def sync_gift_card_remaining_amount(gift_card: str) -> float:
+    """Sync gift card remaining_amount with Payment Entry unallocated amount."""
+    doc = frappe.get_doc("Eumaria Gift Card", gift_card)
+    available_amount = get_available_gift_card_amount(doc)
+
+    if flt(doc.remaining_amount) != available_amount:
+        doc.db_set("remaining_amount", available_amount)
+
+    return available_amount
 
 
 @frappe.whitelist()
@@ -32,15 +57,24 @@ def get_gift_cards_for_customer(customer: str) -> list:
             "ends_on": [">=", today],
             "starts_on": ["<=", today],
         },
-        fields=["name", "remaining_amount", "ends_on", "initial_amount", "mode_of_payment"],
+        fields=["name", "remaining_amount", "ends_on", "initial_amount", "mode_of_payment", "payment_entry"],
         order_by="ends_on asc"
     )
-    
-    # Format for display
+
+    active_cards = []
     for card in gift_cards:
-        card["display"] = f"{card['name']} (Balance: {card['remaining_amount']}, Valid until: {card['ends_on']})"
-    
-    return gift_cards
+        available_amount = get_available_gift_card_amount(frappe._dict(card))
+        if available_amount <= 0:
+            continue
+
+        if flt(card.get("remaining_amount")) != available_amount:
+            frappe.db.set_value("Eumaria Gift Card", card["name"], "remaining_amount", available_amount)
+
+        card["remaining_amount"] = available_amount
+        card["display"] = f"{card['name']} (Balance: {available_amount}, Valid until: {card['ends_on']})"
+        active_cards.append(card)
+
+    return active_cards
 
 
 @frappe.whitelist()
@@ -77,19 +111,21 @@ def validate_gift_card(gift_card: str, amount: float, skip_balance_check: bool =
         if doc.starts_on and getdate(doc.starts_on) > today:
             return {"valid": False, "message": _("Gift card is not yet valid")}
         
+        available_amount = sync_gift_card_remaining_amount(doc.name)
+
         # Check balance
-        if not skip_balance_check and flt(doc.remaining_amount) < amount:
+        if not skip_balance_check and available_amount < amount:
             return {
                 "valid": False,
                 "message": _("Insufficient balance. Available: {0}, Required: {1}").format(
-                    doc.remaining_amount, amount
+                    available_amount, amount
                 )
             }
         
         return {
             "valid": True,
             "message": _("Gift card validated successfully"),
-            "remaining_amount": doc.remaining_amount,
+            "remaining_amount": available_amount,
             "mode_of_payment": doc.mode_of_payment
         }
         
@@ -102,113 +138,30 @@ def validate_gift_card(gift_card: str, amount: float, skip_balance_check: bool =
 
 @frappe.whitelist()
 def allocate_gift_card(gift_card: str, amount: float, sales_invoice: str = None, appointment: str = None) -> dict:
-    """
-    Allocate gift card balance to a payment.
-    
-    Args:
-        gift_card: Gift card name
-        amount: Amount to allocate
-        sales_invoice: Related sales invoice (optional)
-        appointment: Related appointment (optional)
-        
-    Returns:
-        Dict with allocation result
-    """
+    """Backward-compatible helper: returns current balance after syncing with linked advance."""
     try:
         amount = flt(amount)
-        if amount <= 0:
-            return {
-                "success": True,
-                "message": _("No allocation needed for zero or negative amount"),
-                "new_balance": frappe.get_cached_value("Eumaria Gift Card", gift_card, "remaining_amount")
-            }
+        if amount < 0:
+            return {"success": False, "message": _("Amount cannot be negative")}
 
-        doc = frappe.get_doc("Eumaria Gift Card", gift_card)
-
-        # Validate before allocation
         validation = validate_gift_card(gift_card, amount)
         if not validation.get("valid"):
-            return validation
-        
-        # Create payment entry
-        payment_entry = create_gift_card_payment_entry(doc, amount, sales_invoice, appointment)
-        
-        # Update gift card balance
-        new_balance = flt(doc.remaining_amount) - amount
-        doc.db_set("remaining_amount", new_balance)
-        
-        # Link payment entry to gift card
-        doc.db_set("payment_entry", payment_entry.name)
-        
-        frappe.db.commit()
-        
+            return {"success": False, "message": validation.get("message")}
+
+        new_balance = sync_gift_card_remaining_amount(gift_card)
         return {
             "success": True,
-            "message": _("Gift card allocated successfully"),
-            "payment_entry": payment_entry.name,
-            "new_balance": new_balance
+            "message": _("Gift card balance synced successfully"),
+            "new_balance": new_balance,
+            "sales_invoice": sales_invoice,
+            "appointment": appointment,
         }
-        
     except Exception as e:
-        frappe.db.rollback()
         frappe.log_error(frappe.get_traceback(), _("Gift Card Allocation Error"))
         return {
             "success": False,
             "message": _("Error allocating gift card: {0}").format(str(e))
         }
-
-
-def create_gift_card_payment_entry(gift_card_doc: Document, amount: float, sales_invoice: str = None, appointment: str = None) -> Document:
-    """
-    Create a payment entry for gift card allocation.
-    
-    Args:
-        gift_card_doc: Gift card document
-        amount: Amount to allocate
-        sales_invoice: Related sales invoice
-        appointment: Related appointment
-        
-    Returns:
-        Payment Entry document
-    """
-    # Get customer and company from gift card
-    customer = gift_card_doc.customer
-    company = frappe.defaults.get_user_default("company") or frappe.db.get_single_value("Global Defaults", "default_company")
-    
-    # Create payment entry
-    payment_entry = frappe.get_doc({
-        "doctype": "Payment Entry",
-        "payment_type": "Receive",
-        "mode_of_payment": gift_card_doc.mode_of_payment,
-        "party_type": "Customer",
-        "party": customer,
-        "paid_amount": amount,
-        "received_amount": amount,
-        "company": company,
-        "reference_date": nowdate(),
-        "reference_no": gift_card_doc.name,
-        "remarks": _("Gift card payment for {0}").format(
-            f"Sales Invoice {sales_invoice}" if sales_invoice else f"Appointment {appointment}"
-        )
-    })
-    
-    # Insert and submit
-    payment_entry.insert(ignore_permissions=True)
-    payment_entry.submit()
-    
-    # Link to sales invoice if provided
-    if sales_invoice:
-        frappe.get_doc({
-            "doctype": "Payment Entry Reference",
-            "parent": payment_entry.name,
-            "parenttype": "Payment Entry",
-            "parentfield": "references",
-            "reference_doctype": "Sales Invoice",
-            "reference_name": sales_invoice,
-            "allocated_amount": amount
-        }).insert(ignore_permissions=True)
-    
-    return payment_entry
 
 
 @frappe.whitelist()
@@ -224,34 +177,103 @@ def restore_gift_card(gift_card: str, amount: float) -> dict:
         Dict with restoration result
     """
     try:
-        amount = flt(amount)
-        doc = frappe.get_doc("Eumaria Gift Card", gift_card)
-        
-        # Update gift card balance
-        new_balance = flt(doc.remaining_amount) + amount
-        doc.db_set("remaining_amount", new_balance)
-        
-        # Cancel payment entry if exists
-        if doc.payment_entry:
-            payment_entry = frappe.get_doc("Payment Entry", doc.payment_entry)
-            if payment_entry.docstatus == 1:
-                payment_entry.cancel()
-        
-        frappe.db.commit()
-        
+        new_balance = sync_gift_card_remaining_amount(gift_card)
+
         return {
             "success": True,
             "message": _("Gift card balance restored successfully"),
             "new_balance": new_balance
         }
-        
+
     except Exception as e:
-        frappe.db.rollback()
         frappe.log_error(frappe.get_traceback(), _("Gift Card Restoration Error"))
         return {
             "success": False,
             "message": _("Error restoring gift card: {0}").format(str(e))
         }
+
+
+def create_gift_card_sales_invoice(
+    appointment_doc,
+    gift_card_doc,
+    discount_percentage: float = 0,
+    discount_amount: float = 0,
+):
+    """Create Sales Invoice and allocate only the linked gift-card Payment Entry advance."""
+    from healthcare.healthcare.doctype.healthcare_settings.healthcare_settings import get_receivable_account
+    from healthcare.healthcare.doctype.patient_appointment.patient_appointment import get_appointment_item
+
+    sales_invoice = frappe.new_doc("Sales Invoice")
+    sales_invoice.patient = appointment_doc.patient
+    sales_invoice.customer = frappe.get_value("Patient", appointment_doc.patient, "customer")
+    sales_invoice.appointment = appointment_doc.name
+    sales_invoice.due_date = getdate()
+    sales_invoice.company = appointment_doc.company
+    sales_invoice.debit_to = get_receivable_account(appointment_doc.company)
+
+    item = sales_invoice.append("items", {})
+    item = get_appointment_item(appointment_doc, item)
+
+    paid_amount = flt(appointment_doc.paid_amount)
+    if flt(discount_percentage):
+        sales_invoice.additional_discount_percentage = flt(discount_percentage)
+        paid_amount = flt(appointment_doc.paid_amount) - (
+            flt(appointment_doc.paid_amount) * (flt(discount_percentage) / 100)
+        )
+
+    if flt(discount_amount):
+        sales_invoice.discount_amount = flt(discount_amount)
+        paid_amount = flt(appointment_doc.paid_amount) - flt(discount_amount)
+
+    paid_amount = max(flt(paid_amount), 0)
+
+    sales_invoice.allocate_advances_automatically = 0
+    sales_invoice.set_missing_values(for_validate=True)
+    sales_invoice.set_advances()
+
+    matching_advance = next(
+        (
+            advance
+            for advance in sales_invoice.advances
+            if advance.reference_type == "Payment Entry"
+            and advance.reference_name == gift_card_doc.payment_entry
+        ),
+        None,
+    )
+
+    if not matching_advance:
+        frappe.throw(
+            _("No available advance was found for Gift Card {0}.").format(gift_card_doc.name)
+        )
+
+    if flt(matching_advance.advance_amount) < paid_amount:
+        frappe.throw(
+            _("Insufficient gift card balance. Available: {0}, Required: {1}").format(
+                matching_advance.advance_amount,
+                paid_amount,
+            )
+        )
+
+    sales_invoice.set("advances", [])
+    sales_invoice.append(
+        "advances",
+        {
+            "reference_type": matching_advance.reference_type,
+            "reference_name": matching_advance.reference_name,
+            "reference_row": matching_advance.reference_row,
+            "remarks": matching_advance.remarks,
+            "advance_amount": matching_advance.advance_amount,
+            "allocated_amount": paid_amount,
+            "ref_exchange_rate": matching_advance.ref_exchange_rate,
+            "difference_posting_date": sales_invoice.posting_date,
+        },
+    )
+
+    sales_invoice.flags.ignore_mandatory = True
+    sales_invoice.save(ignore_permissions=True)
+    sales_invoice.submit()
+
+    return sales_invoice, paid_amount
 
 
 @frappe.whitelist()
@@ -268,11 +290,27 @@ def invoice_appointment_with_gift_card(appointment_name: str, discount_percentag
     Returns:
         Dict with invoice creation result
     """
-    from healthcare.healthcare.doctype.patient_appointment.patient_appointment import invoice_appointment
+    from healthcare.healthcare.doctype.fee_validity.fee_validity import check_fee_validity, get_fee_validity
+    from healthcare.healthcare.doctype.patient_appointment.patient_appointment import update_fee_validity
     
     try:
         appointment_doc = frappe.get_doc("Patient Appointment", appointment_name)
-        
+
+        if appointment_doc.mode_of_payment:
+            return {
+                "success": False,
+                "message": _("Cannot use both gift card and regular payment method. Please choose one."),
+                "validation_error": True,
+            }
+
+        gift_card_name = gift_card or appointment_doc.selected_gift_card
+        if not gift_card_name:
+            return {
+                "success": False,
+                "message": _("Please select a gift card when using gift card payment."),
+                "validation_error": True,
+            }
+
         # Compute discounted amount
         discount_amt = flt(discount_amount)
         if not discount_amt and discount_percentage:
@@ -282,60 +320,66 @@ def invoice_appointment_with_gift_card(appointment_name: str, discount_percentag
         if payable_amount < 0:
             payable_amount = 0
 
-        # Validate gift card if provided
-        if gift_card:
-            validation = validate_gift_card(gift_card, payable_amount)
-            if not validation.get("valid"):
-                return {
-                    "success": False,
-                    "message": validation.get("message"),
-                    "validation_error": True
-                }
-        
-        # Create invoice using existing healthcare function
-        invoice_result = invoice_appointment(appointment_name, discount_percentage, discount_amount)
-        
-        # If invoice created successfully and gift card provided, allocate gift card
-        if gift_card and appointment_doc.ref_sales_invoice:
-            allocation_result = allocate_gift_card(
-                gift_card=gift_card,
-                amount=payable_amount,
-                sales_invoice=appointment_doc.ref_sales_invoice,
-                appointment=appointment_name
-            )
-            
-            if allocation_result.get("success"):
-                # Update appointment with gift card info
-                appointment_doc.db_set({
-                    "use_gift_card": 1,
-                    "selected_gift_card": gift_card,
-                    "gift_card_allocated_amount": payable_amount
-                })
-                
+        validation = validate_gift_card(gift_card_name, payable_amount)
+        if not validation.get("valid"):
+            return {
+                "success": False,
+                "message": validation.get("message"),
+                "validation_error": True,
+            }
+
+        settings = frappe.get_single("Healthcare Settings")
+        if settings.enable_free_follow_ups:
+            fee_validity = check_fee_validity(appointment_doc)
+
+            if fee_validity and fee_validity.status != "Active":
+                fee_validity = None
+            elif not fee_validity and get_fee_validity(appointment_doc.name, appointment_doc.appointment_date):
                 return {
                     "success": True,
-                    "message": _("Invoice created and gift card allocated successfully"),
-                    "sales_invoice": appointment_doc.ref_sales_invoice,
-                    "payment_entry": allocation_result.get("payment_entry")
+                    "message": _("Fee validity exists. No invoice created."),
                 }
-            else:
-                # If gift card allocation failed, we should cancel the invoice
-                # For now, return error (in production, you might want to cancel the invoice)
-                return {
-                    "success": False,
-                    "message": _("Invoice created but gift card allocation failed: {0}").format(
-                        allocation_result.get("message")
-                    ),
-                    "sales_invoice": appointment_doc.ref_sales_invoice,
-                    "allocation_error": True
-                }
-        
+        else:
+            fee_validity = None
+
+        if not settings.show_payment_popup or appointment_doc.invoiced or fee_validity:
+            return {
+                "success": False,
+                "message": _("Invoice cannot be created for this appointment."),
+                "validation_error": True,
+            }
+
+        gift_card_doc = frappe.get_doc("Eumaria Gift Card", gift_card_name)
+        sales_invoice, allocated_amount = create_gift_card_sales_invoice(
+            appointment_doc,
+            gift_card_doc,
+            discount_percentage,
+            discount_amount,
+        )
+
+        appointment_doc.db_set(
+            {
+                "invoiced": 1,
+                "ref_sales_invoice": sales_invoice.name,
+                "paid_amount": allocated_amount,
+                "use_gift_card": 1,
+                "selected_gift_card": gift_card_name,
+                "gift_card_allocated_amount": allocated_amount,
+                "mode_of_payment": "",
+            }
+        )
+
+        sync_gift_card_remaining_amount(gift_card_name)
+        update_fee_validity(appointment_doc)
+        appointment_doc.notify_update()
+
         return {
             "success": True,
-            "message": _("Invoice created successfully"),
-            "sales_invoice": appointment_doc.ref_sales_invoice
+            "message": _("Invoice created and gift card allocated successfully"),
+            "sales_invoice": sales_invoice.name,
+            "payment_entry": gift_card_doc.payment_entry,
         }
-        
+
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), _("Gift Card Invoice Error"))
         return {
@@ -357,10 +401,11 @@ def get_gift_card_balance(gift_card: str) -> dict:
     """
     try:
         doc = frappe.get_doc("Eumaria Gift Card", gift_card)
-        
+        available_amount = sync_gift_card_remaining_amount(gift_card)
+
         return {
             "success": True,
-            "balance": doc.remaining_amount,
+            "balance": available_amount,
             "currency": frappe.defaults.get_global_default("currency"),
             "valid_until": doc.ends_on,
             "is_valid": (
