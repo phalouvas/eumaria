@@ -5,7 +5,7 @@ import frappe
 from frappe import _
 from frappe.exceptions import DoesNotExistError
 from frappe.model.document import Document
-from frappe.utils import getdate
+from frappe.utils import getdate, nowdate
 
 
 class EumariaGiftCard(Document):
@@ -18,9 +18,29 @@ class EumariaGiftCard(Document):
 	- Cancels the linked Payment Entry when the gift card is cancelled.
 	"""
 	def validate(self):
-		"""Set remaining_amount equal to initial_amount for new gift cards."""
+		"""Set remaining_amount equal to initial_amount for new gift cards and populate customer from patient."""
 		if self.is_new() and not self.get("amended_from"):
 			self.remaining_amount = self.initial_amount
+		
+		# Populate customer from patient if patient is set
+		if self.patient and not self.customer:
+			try:
+				# Get customer linked to the patient
+				patient_customer = frappe.get_value("Patient", self.patient, "customer")
+				if patient_customer:
+					self.customer = patient_customer
+				else:
+					frappe.throw(_("Patient {0} is not linked to any customer. Please link the patient to a customer first.").format(self.patient))
+			except Exception as e:
+				frappe.log_error(
+					title=_("Failed to fetch customer from patient {0}").format(self.patient),
+					message=frappe.get_traceback(),
+				)
+				frappe.throw(_("Failed to get customer from patient: {0}").format(str(e)))
+		
+		# Also validate that patient is set (it's required in JSON but double-check)
+		if not self.patient:
+			frappe.throw(_("Patient is required"))
 
 	def after_insert(self):
 		"""Create a Payment Entry for the gift card."""
@@ -29,8 +49,10 @@ class EumariaGiftCard(Document):
 			return
 
 		# Validate required fields
+		if not self.patient:
+			frappe.throw(_("Patient is required to create payment entry"))
 		if not self.customer:
-			frappe.throw(_("Customer is required to create payment entry"))
+			frappe.throw(_("Customer is required to create payment entry. Please ensure the patient is linked to a customer."))
 		if not self.mode_of_payment:
 			frappe.throw(_("Mode of Payment is required to create payment entry"))
 		if not self.initial_amount or self.initial_amount <= 0:
@@ -52,8 +74,8 @@ class EumariaGiftCard(Document):
 					self.mode_of_payment, company
 				))
 
-			# Create payment entry
-			payment_entry = frappe.get_doc({
+			# Prepare payment entry data
+			payment_entry_data = {
 				"doctype": "Payment Entry",
 				"payment_type": "Receive",
 				"party_type": "Customer",
@@ -66,7 +88,17 @@ class EumariaGiftCard(Document):
 				"posting_date": getdate(),
 				"company": company,
 				"remarks": _("Gift card {0}").format(self.name),
-			})
+			}
+			
+			# Add reference_no and reference_date if provided by user
+			if self.reference_no:
+				payment_entry_data["reference_no"] = self.reference_no
+			
+			if self.reference_date:
+				payment_entry_data["reference_date"] = self.reference_date
+			
+			# Create payment entry
+			payment_entry = frappe.get_doc(payment_entry_data)
 			payment_entry.insert(ignore_permissions=True)
 
 			# Link payment entry to gift card
