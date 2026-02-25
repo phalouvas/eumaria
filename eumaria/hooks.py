@@ -44,7 +44,7 @@ app_include_js = ["/assets/eumaria/js/filterarea_mobile_fix.js"]
 
 # include js in doctype views
 doctype_js = {
-	"Patient Appointment": "public/js/patient_appointment.js",
+	"Patient Appointment": ["public/js/patient_appointment.js", "public/js/gift_card_payment.js"],
 	"Patient Assessment": "public/js/patient_assessment.js",
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
@@ -145,7 +145,14 @@ override_doctype_class = {
 
 doc_events = {
 	"Patient Appointment": {
-		"validate": "eumaria.events.patient_appointment.mark_group_session_reminded",
+		"validate": [
+			"eumaria.events.patient_appointment.mark_group_session_reminded",
+			"eumaria.overrides.invoice_creation.validate_appointment_before_save"
+		],
+		"before_save": "eumaria.overrides.invoice_creation.validate_appointment_before_save",
+	},
+	"Sales Invoice": {
+		"on_cancel": "eumaria.overrides.invoice_creation.on_sales_invoice_cancel",
 	},
 }
 
@@ -166,16 +173,10 @@ scheduler_events = {
 # Overriding Methods
 # ------------------------------
 #
-# override_whitelisted_methods = {
-# 	"frappe.desk.doctype.event.event.get_events": "eumaria.event.get_events"
-# }
-#
-# each overriding function accepts a `data` argument;
-# generated from the base implementation of the doctype dashboard,
-# along with any modifications made in other Frappe apps
-# override_doctype_dashboards = {
-# 	"Task": "eumaria.task.get_dashboard_data"
-# }
+override_whitelisted_methods = {
+	"healthcare.healthcare.doctype.patient_appointment.patient_appointment.invoice_appointment": "eumaria.overrides.invoice_creation.invoice_appointment",
+	"healthcare.healthcare.doctype.patient_appointment.patient_appointment.cancel_appointment": "eumaria.overrides.invoice_creation.cancel_appointment",
+}
 
 # exempt linked doctypes from being automatically cancelled
 #

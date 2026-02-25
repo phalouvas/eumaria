@@ -5,7 +5,6 @@ import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 from frappe.custom.doctype.property_setter.property_setter import make_property_setter
 
-
 def execute():
 	"""Create custom fields used by Eumaria customizations."""
 
@@ -26,6 +25,45 @@ def execute():
 				"hidden": 1,
 				"no_copy": 1,
 				"insert_after": "is_group_session",
+			},
+			{
+				"fieldname": "use_gift_card",
+				"label": "Use Gift Card",
+				"fieldtype": "Check",
+				"insert_after": "mode_of_payment",
+				"depends_on": "eval:!doc.invoiced",
+				"description": "Check to use gift card for payment",
+			},
+			{
+				"fieldname": "selected_gift_card",
+				"label": "Gift Card",
+				"fieldtype": "Link",
+				"options": "Eumaria Gift Card",
+				"insert_after": "use_gift_card",
+				"depends_on": "eval:doc.use_gift_card && !doc.invoiced",
+				"mandatory_depends_on": "eval:doc.use_gift_card && !doc.invoiced",
+				"description": "Select gift card for payment",
+			},
+			{
+				"fieldname": "gift_card_balance",
+				"label": "Gift Card Balance",
+				"fieldtype": "Currency",
+				"insert_after": "selected_gift_card",
+				"read_only": 1,
+				"depends_on": "eval:doc.use_gift_card",
+				"description": "Remaining balance on selected gift card",
+				"fetch_from": "selected_gift_card.remaining_amount",
+				"fetch_if_empty": 0,
+			},
+			{
+				"fieldname": "gift_card_allocated_amount",
+				"label": "Gift Card Allocated Amount",
+				"fieldtype": "Currency",
+				"insert_after": "gift_card_balance",
+				"hidden": 1,
+				"read_only": 1,
+				"no_copy": 1,
+				"description": "Amount allocated from gift card",
 			},
 		],
 		"Patient Assessment": [
@@ -55,6 +93,8 @@ def execute():
 
 	create_custom_fields(custom_fields, update=True)
 
+	# Add property setters for gift card field behavior
+	set_gift_card_field_properties()
 	set_comments_in_list_view()
 	make_score_field_optional()
 	create_or_update_patient_assessment_print_format()
@@ -62,6 +102,35 @@ def execute():
 
 	set_default_patient_appointment_view()
 
+
+def set_gift_card_field_properties():
+	"""Set properties for gift card field behavior."""
+	# Make mode_of_payment field depend on use_gift_card
+	make_property_setter(
+		"Patient Appointment",
+		"mode_of_payment",
+		"depends_on",
+		"eval:!doc.use_gift_card && !doc.invoiced",
+		"Text",
+	)
+	
+	# Make paid_amount field depend on use_gift_card
+	make_property_setter(
+		"Patient Appointment",
+		"paid_amount",
+		"depends_on",
+		"eval:!doc.use_gift_card && !doc.invoiced",
+		"Text",
+	)
+	
+	# Make billing_item field depend on use_gift_card
+	make_property_setter(
+		"Patient Appointment",
+		"billing_item",
+		"depends_on",
+		"eval:!doc.use_gift_card && !doc.invoiced",
+		"Text",
+	)
 
 def set_default_patient_appointment_view():
 	"""Force Patient Appointment to open in Calendar view by default."""
