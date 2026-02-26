@@ -1,0 +1,182 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-02-24 14:22:31.603245",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_ox27",
+  "starts_on",
+  "payer",
+  "customer",
+  "disabled",
+  "column_break_tczs",
+  "ends_on",
+  "patient",
+  "amended_from",
+  "section_break_reference",
+  "mode_of_payment",
+  "payment_entry",
+  "reference_no",
+  "column_break_ubhi",
+  "initial_amount",
+  "remaining_amount",
+  "reference_date",
+  "section_break_awuc",
+  "description"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_ox27",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Eumaria Gift Card",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "payer",
+   "fieldtype": "Data",
+   "label": "Payer"
+  },
+  {
+   "fieldname": "initial_amount",
+   "fieldtype": "Currency",
+   "label": "Amount",
+   "print_hide": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_tczs",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Today",
+   "fieldname": "starts_on",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Starts On",
+   "print_hide": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "ends_on",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Valid Until",
+   "reqd": 1
+  },
+  {
+   "fieldname": "payment_entry",
+   "fieldtype": "Link",
+   "label": "Payment Entry",
+   "options": "Payment Entry",
+   "print_hide": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Customer",
+   "options": "Customer",
+   "print_hide": 1
+  },
+  {
+   "fieldname": "remaining_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Remaining Amount",
+   "print_hide": 1,
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "disabled",
+   "fieldtype": "Check",
+   "label": "Disabled",
+   "print_hide": 1
+  },
+  {
+   "fieldname": "mode_of_payment",
+   "fieldtype": "Link",
+   "label": "Mode of Payment",
+   "options": "Mode of Payment",
+   "print_hide": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "patient",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Patient",
+   "options": "Patient",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_reference",
+   "fieldtype": "Section Break",
+   "label": "Payment Reference Details"
+  },
+  {
+   "fieldname": "reference_no",
+   "fieldtype": "Data",
+   "label": "Reference No",
+   "print_hide": 1
+  },
+  {
+   "fieldname": "reference_date",
+   "fieldtype": "Date",
+   "label": "Reference Date",
+   "print_hide": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Service"
+  },
+  {
+   "fieldname": "column_break_ubhi",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_awuc",
+   "fieldtype": "Section Break"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-02-26 10:36:15.277673",
+ "modified_by": "Administrator",
+ "module": "Eumaria",
+ "name": "Eumaria Gift Card",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}
