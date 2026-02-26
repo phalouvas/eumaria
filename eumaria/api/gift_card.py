@@ -242,6 +242,7 @@ def create_gift_card_sales_invoice(
 
     sales_invoice.allocate_advances_automatically = 0
     sales_invoice.set_missing_values(for_validate=True)
+    sales_invoice.calculate_taxes_and_totals()
     sales_invoice.set_advances()
 
     matching_advance = next(
