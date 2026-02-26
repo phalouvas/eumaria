@@ -25,8 +25,6 @@ def get_available_gift_card_amount(gift_card_doc) -> float:
     
     return flt(unallocated_amount) or 0
 
-    return flt(unallocated_amount)
-
 
 def sync_gift_card_remaining_amount(gift_card: str) -> float:
     """Sync gift card remaining_amount with Payment Entry unallocated amount."""

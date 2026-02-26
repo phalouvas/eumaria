@@ -18,7 +18,12 @@ class EumariaGiftCard(Document):
 	- Cancels the linked Payment Entry when the gift card is cancelled.
 	"""
 	def validate(self):
-		"""Set remaining_amount equal to initial_amount for new gift cards and populate customer from patient."""
+		"""Validate the gift card.
+
+		- For new gift cards, set remaining_amount equal to initial_amount.
+		- If patient is set and customer is not, populate customer from the linked patient.
+		- Ensure that patient is set, raising an error if it is missing.
+		"""
 		if self.is_new() and not self.get("amended_from"):
 			self.remaining_amount = self.initial_amount
 		

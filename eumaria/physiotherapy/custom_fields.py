@@ -104,7 +104,7 @@ def execute():
 
 
 def set_gift_card_field_properties():
-	"""Set properties for gift card field behavior."""
+	"""Configure field dependencies and mandatory conditions for gift card payment fields in Patient Appointment."""
 	# Make mode_of_payment field depend on use_gift_card
 	make_property_setter(
 		"Patient Appointment",
