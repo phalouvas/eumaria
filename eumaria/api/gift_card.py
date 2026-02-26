@@ -214,16 +214,19 @@ def create_gift_card_sales_invoice(
     item = sales_invoice.append("items", {})
     item = get_appointment_item(appointment_doc, item)
 
-    paid_amount = flt(appointment_doc.paid_amount)
+    # Get paid amount from appointment, default to 0 if None
+    appointment_paid_amount = flt(appointment_doc.paid_amount) or 0
+    paid_amount = appointment_paid_amount
+    
     if flt(discount_percentage):
         sales_invoice.additional_discount_percentage = flt(discount_percentage)
-        paid_amount = flt(appointment_doc.paid_amount) - (
-            flt(appointment_doc.paid_amount) * (flt(discount_percentage) / 100)
+        paid_amount = appointment_paid_amount - (
+            appointment_paid_amount * (flt(discount_percentage) / 100)
         )
 
     if flt(discount_amount):
         sales_invoice.discount_amount = flt(discount_amount)
-        paid_amount = flt(appointment_doc.paid_amount) - flt(discount_amount)
+        paid_amount = appointment_paid_amount - flt(discount_amount)
 
     paid_amount = max(flt(paid_amount), 0)
 
@@ -315,6 +318,10 @@ def invoice_appointment_with_gift_card(appointment_name: str, discount_percentag
 
         # Use provided paid_amount or fall back to appointment.paid_amount
         base_amount = flt(paid_amount) if paid_amount is not None else flt(appointment_doc.paid_amount)
+        
+        # Ensure base_amount is not None
+        if base_amount is None:
+            base_amount = 0
         
         # Compute discounted amount
         discount_amt = flt(discount_amount)

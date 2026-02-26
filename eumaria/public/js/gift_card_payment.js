@@ -84,6 +84,12 @@ eumaria.gift_card.update_gift_card_filter = function(frm) {
 eumaria.gift_card.make_payment = function(frm, automate_invoicing) {
 	if (automate_invoicing) {
 		eumaria.gift_card.make_registration(frm, automate_invoicing);
+	} else {
+		// For manual "Make Payment" button, call original function
+		// which will show payment dialog, and our show_payment_dialog override will handle it
+		if (original_make_payment) {
+			original_make_payment(frm, automate_invoicing);
+		}
 	}
 };
 
@@ -565,8 +571,6 @@ eumaria.gift_card.validate_discount = function(d, field) {
 
 // Initialize the gift card payment system when the page loads
 $(document).ready(function() {
-	// Wait a bit to ensure all Frappe components are loaded
-	setTimeout(function() {
-		eumaria.gift_card.init();
-	}, 1000);
+	// Initialize immediately
+	eumaria.gift_card.init();
 });
