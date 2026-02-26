@@ -10,11 +10,28 @@ from healthcare.healthcare.doctype.patient_appointment.patient_appointment impor
 
 
 @frappe.whitelist()
-def invoice_appointment(appointment_name: str, discount_percentage: float = 0, discount_amount: float = 0) -> None:
+def invoice_appointment(appointment_name: str, discount_percentage: float = 0, discount_amount: float = 0, 
+                       mode_of_payment: str = None, paid_amount: float = None, 
+                       use_gift_card: bool = False, gift_card: str = None) -> None:
     """
     Override the invoice_appointment function to handle gift card payments.
     """
     appointment_doc = frappe.get_doc("Patient Appointment", appointment_name)
+    
+    # Update appointment with provided payment details if given
+    update_fields = {}
+    if mode_of_payment is not None:
+        update_fields["mode_of_payment"] = mode_of_payment
+    if paid_amount is not None:
+        update_fields["paid_amount"] = paid_amount
+    if use_gift_card is not None:
+        update_fields["use_gift_card"] = use_gift_card
+    if gift_card is not None:
+        update_fields["selected_gift_card"] = gift_card
+    
+    if update_fields:
+        appointment_doc.db_set(update_fields)
+        appointment_doc.reload()
 
     # Check if gift card is being used
     if appointment_doc.use_gift_card and appointment_doc.selected_gift_card:
@@ -27,7 +44,8 @@ def invoice_appointment(appointment_name: str, discount_percentage: float = 0, d
             appointment_name=appointment_name,
             discount_percentage=discount_percentage,
             discount_amount=discount_amount,
-            gift_card=appointment_doc.selected_gift_card
+            gift_card=appointment_doc.selected_gift_card,
+            paid_amount=paid_amount
         )
         
         if not result.get("success"):

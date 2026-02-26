@@ -283,28 +283,34 @@ eumaria.gift_card.show_payment_dialog = function(frm, fields) {
 				}
 			}
 			
-			// Update appointment with gift card info
+			// Update appointment with payment info and discounted amount
 			if (values.use_gift_card) {
 				frm.set_value("use_gift_card", 1);
 				frm.set_value("selected_gift_card", values.gift_card);
 				frm.set_value("mode_of_payment", "");
+				frm.set_value("paid_amount", values.total_payable);
 			} else {
 				frm.set_value("use_gift_card", 0);
 				frm.set_value("selected_gift_card", "");
 				frm.set_value("mode_of_payment", values.mode_of_payment);
+				frm.set_value("paid_amount", values.total_payable);
 			}
 			
 			if (frm.is_dirty()) {
 				await frm.save();
 			}
 			
-			// Call invoice creation with gift card parameter
+			// Call invoice creation with payment details
 			frappe.call({
 				method: "eumaria.overrides.invoice_creation.invoice_appointment",
 				args: {
 					appointment_name: frm.doc.name,
 					discount_percentage: values.discount_percentage,
 					discount_amount: values.discount_amount,
+					mode_of_payment: values.mode_of_payment,
+					paid_amount: values.total_payable,
+					use_gift_card: values.use_gift_card,
+					gift_card: values.gift_card,
 				},
 				callback: async function(data) {
 					if (!data.exc) {
@@ -317,7 +323,30 @@ eumaria.gift_card.show_payment_dialog = function(frm, fields) {
 							d.get_field("discount_amount").$input.prop("disabled", true);
 							d.get_primary_btn().attr("disabled", true);
 							d.get_secondary_btn().attr("disabled", false);
+							
+							// Close dialog after successful invoice creation
+							setTimeout(() => {
+								d.hide();
+								frappe.show_alert({
+									message: __("Invoice created successfully"),
+									indicator: "green"
+								}, 5);
+							}, 1000);
+						} else {
+							// Invoice not created
+							frappe.msgprint({
+								title: __("Invoice Creation Failed"),
+								message: __("Sales invoice was not created. Please check the appointment details."),
+								indicator: "red"
+							});
 						}
+					} else {
+						// API call had an exception
+						frappe.msgprint({
+							title: __("Invoice Creation Error"),
+							message: __("Error creating invoice: {0}").format(data.exc),
+							indicator: "red"
+						});
 					}
 				},
 			});

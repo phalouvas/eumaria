@@ -277,7 +277,8 @@ def create_gift_card_sales_invoice(
 
 
 @frappe.whitelist()
-def invoice_appointment_with_gift_card(appointment_name: str, discount_percentage: float = 0, discount_amount: float = 0, gift_card: str = None) -> dict:
+def invoice_appointment_with_gift_card(appointment_name: str, discount_percentage: float = 0, discount_amount: float = 0, 
+                                      gift_card: str = None, paid_amount: float = None) -> dict:
     """
     Create invoice for appointment with gift card payment.
     
@@ -286,6 +287,7 @@ def invoice_appointment_with_gift_card(appointment_name: str, discount_percentag
         discount_percentage: Discount percentage
         discount_amount: Discount amount
         gift_card: Gift card to use
+        paid_amount: Paid amount (optional, defaults to appointment.paid_amount)
         
     Returns:
         Dict with invoice creation result
@@ -311,12 +313,15 @@ def invoice_appointment_with_gift_card(appointment_name: str, discount_percentag
                 "validation_error": True,
             }
 
+        # Use provided paid_amount or fall back to appointment.paid_amount
+        base_amount = flt(paid_amount) if paid_amount is not None else flt(appointment_doc.paid_amount)
+        
         # Compute discounted amount
         discount_amt = flt(discount_amount)
         if not discount_amt and discount_percentage:
-            discount_amt = flt(appointment_doc.paid_amount) * flt(discount_percentage) / 100
+            discount_amt = base_amount * flt(discount_percentage) / 100
 
-        payable_amount = flt(appointment_doc.paid_amount) - discount_amt
+        payable_amount = base_amount - discount_amt
         if payable_amount < 0:
             payable_amount = 0
 

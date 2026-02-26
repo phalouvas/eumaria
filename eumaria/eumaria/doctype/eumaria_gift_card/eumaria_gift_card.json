@@ -48,7 +48,6 @@
   {
    "fieldname": "initial_amount",
    "fieldtype": "Currency",
-   "in_list_view": 1,
    "label": "Amount",
    "reqd": 1
   },
@@ -89,6 +88,7 @@
   {
    "fieldname": "remaining_amount",
    "fieldtype": "Currency",
+   "in_list_view": 1,
    "label": "Remaining Amount",
    "print_hide": 1,
    "read_only": 1
@@ -151,7 +151,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-02-25 11:18:49.582782",
+ "modified": "2026-02-26 07:53:22.481383",
  "modified_by": "Administrator",
  "module": "Eumaria",
  "name": "Eumaria Gift Card",
