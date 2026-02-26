@@ -207,6 +207,7 @@ def create_gift_card_sales_invoice(
     gift_card_doc,
     discount_percentage: float = 0,
     discount_amount: float = 0,
+    paid_amount: float = None,
 ):
     """Create Sales Invoice and allocate only the linked gift-card Payment Entry advance."""
     from healthcare.healthcare.doctype.healthcare_settings.healthcare_settings import get_receivable_account
@@ -225,22 +226,26 @@ def create_gift_card_sales_invoice(
 
     # Get paid amount from appointment, default to 0 if None
     appointment_paid_amount = flt(appointment_doc.paid_amount) or 0
-    paid_amount = appointment_paid_amount
     
-    discount_percentage_val = flt(discount_percentage) or 0
-    discount_amount_val = flt(discount_amount) or 0
-    
-    if discount_percentage_val:
-        sales_invoice.additional_discount_percentage = discount_percentage_val
-        paid_amount = flt(appointment_paid_amount - (
-            appointment_paid_amount * (discount_percentage_val / 100)
-        ), 2)
+    # Use provided paid_amount if available, otherwise calculate from discounts
+    if paid_amount is not None:
+        final_paid_amount = flt(paid_amount, 2)
+    else:
+        final_paid_amount = appointment_paid_amount
+        discount_percentage_val = flt(discount_percentage) or 0
+        discount_amount_val = flt(discount_amount) or 0
+        
+        if discount_percentage_val:
+            sales_invoice.additional_discount_percentage = discount_percentage_val
+            final_paid_amount = flt(appointment_paid_amount - (
+                appointment_paid_amount * (discount_percentage_val / 100)
+            ), 2)
 
-    if discount_amount_val:
-        sales_invoice.discount_amount = discount_amount_val
-        paid_amount = flt(appointment_paid_amount - discount_amount_val, 2)
+        if discount_amount_val:
+            sales_invoice.discount_amount = discount_amount_val
+            final_paid_amount = flt(appointment_paid_amount - discount_amount_val, 2)
 
-    paid_amount = max(flt(paid_amount, 2), 0)
+    final_paid_amount = max(flt(final_paid_amount, 2), 0)
 
     sales_invoice.allocate_advances_automatically = 0
     sales_invoice.set_missing_values(for_validate=True)
@@ -264,11 +269,11 @@ def create_gift_card_sales_invoice(
 
     # Check balance with tolerance for floating-point rounding errors
     # Use flt with precision 2 for currency comparison
-    if flt(matching_advance.advance_amount - paid_amount, 2) < 0:
+    if flt(matching_advance.advance_amount - final_paid_amount, 2) < 0:
         frappe.throw(
             _("Insufficient gift card balance. Available: {0}, Required: {1}").format(
                 flt(matching_advance.advance_amount, 2),
-                flt(paid_amount, 2),
+                flt(final_paid_amount, 2),
             )
         )
 
@@ -281,7 +286,7 @@ def create_gift_card_sales_invoice(
             "reference_row": matching_advance.reference_row,
             "remarks": matching_advance.remarks,
             "advance_amount": matching_advance.advance_amount,
-            "allocated_amount": paid_amount,
+            "allocated_amount": final_paid_amount,
             "ref_exchange_rate": matching_advance.ref_exchange_rate,
             "difference_posting_date": sales_invoice.posting_date,
         },
@@ -291,7 +296,7 @@ def create_gift_card_sales_invoice(
     sales_invoice.save(ignore_permissions=True)
     sales_invoice.submit()
 
-    return sales_invoice, paid_amount
+    return sales_invoice, final_paid_amount
 
 
 @frappe.whitelist()
@@ -332,23 +337,24 @@ def invoice_appointment_with_gift_card(appointment_name: str, discount_percentag
             }
 
         # Use provided paid_amount or fall back to appointment.paid_amount
-        base_amount = flt(paid_amount) if paid_amount is not None else flt(appointment_doc.paid_amount)
-        
-        # Ensure base_amount is not None
-        if base_amount is None:
-            base_amount = 0
-        
-        # Compute discounted amount with proper rounding
-        discount_amt = flt(discount_amount) or 0
-        discount_percentage_val = flt(discount_percentage) or 0
-        
-        if not discount_amt and discount_percentage_val:
-            discount_amt = flt(base_amount * discount_percentage_val / 100, 2)
+        if paid_amount is not None:
+            # If paid_amount is provided, use it as the final amount (already includes discount)
+            payable_amount = flt(paid_amount, 2)
+        else:
+            # Otherwise, start from appointment.paid_amount and apply discounts
+            base_amount = flt(appointment_doc.paid_amount) or 0
+            
+            # Compute discounted amount with proper rounding
+            discount_amt = flt(discount_amount) or 0
+            discount_percentage_val = flt(discount_percentage) or 0
+            
+            if not discount_amt and discount_percentage_val:
+                discount_amt = flt(base_amount * discount_percentage_val / 100, 2)
 
-        payable_amount = flt(base_amount - discount_amt, 2)
-        if payable_amount < 0:
-            payable_amount = 0
-
+            payable_amount = flt(base_amount - discount_amt, 2)
+            if payable_amount < 0:
+                payable_amount = 0
+        
         validation = validate_gift_card(gift_card_name, payable_amount)
         if not validation.get("valid"):
             return {
@@ -384,6 +390,7 @@ def invoice_appointment_with_gift_card(appointment_name: str, discount_percentag
             gift_card_doc,
             discount_percentage,
             discount_amount,
+            paid_amount=payable_amount,
         )
 
         appointment_doc.db_set(
