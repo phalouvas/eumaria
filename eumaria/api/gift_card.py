@@ -9,14 +9,21 @@ from frappe.utils import flt, getdate, nowdate
 def get_available_gift_card_amount(gift_card_doc) -> float:
     """Return currently available amount from linked Payment Entry advance."""
     if not gift_card_doc.payment_entry:
-        return flt(gift_card_doc.remaining_amount)
+        return flt(gift_card_doc.remaining_amount) or 0
 
-    unallocated_amount, docstatus = frappe.db.get_value(
+    result = frappe.db.get_value(
         "Payment Entry", gift_card_doc.payment_entry, ["unallocated_amount", "docstatus"]
-    ) or (0, 0)
-
+    )
+    
+    if not result:
+        return 0
+    
+    unallocated_amount, docstatus = result
+    
     if docstatus != 1:
         return 0
+    
+    return flt(unallocated_amount) or 0
 
     return flt(unallocated_amount)
 
@@ -26,7 +33,7 @@ def sync_gift_card_remaining_amount(gift_card: str) -> float:
     doc = frappe.get_doc("Eumaria Gift Card", gift_card)
     available_amount = get_available_gift_card_amount(doc)
 
-    if flt(doc.remaining_amount) != available_amount:
+    if flt(doc.remaining_amount or 0) != available_amount:
         doc.db_set("remaining_amount", available_amount)
 
     return available_amount
@@ -218,15 +225,18 @@ def create_gift_card_sales_invoice(
     appointment_paid_amount = flt(appointment_doc.paid_amount) or 0
     paid_amount = appointment_paid_amount
     
-    if flt(discount_percentage):
-        sales_invoice.additional_discount_percentage = flt(discount_percentage)
+    discount_percentage_val = flt(discount_percentage) or 0
+    discount_amount_val = flt(discount_amount) or 0
+    
+    if discount_percentage_val:
+        sales_invoice.additional_discount_percentage = discount_percentage_val
         paid_amount = appointment_paid_amount - (
-            appointment_paid_amount * (flt(discount_percentage) / 100)
+            appointment_paid_amount * (discount_percentage_val / 100)
         )
 
-    if flt(discount_amount):
-        sales_invoice.discount_amount = flt(discount_amount)
-        paid_amount = appointment_paid_amount - flt(discount_amount)
+    if discount_amount_val:
+        sales_invoice.discount_amount = discount_amount_val
+        paid_amount = appointment_paid_amount - discount_amount_val
 
     paid_amount = max(flt(paid_amount), 0)
 
@@ -324,9 +334,11 @@ def invoice_appointment_with_gift_card(appointment_name: str, discount_percentag
             base_amount = 0
         
         # Compute discounted amount
-        discount_amt = flt(discount_amount)
-        if not discount_amt and discount_percentage:
-            discount_amt = base_amount * flt(discount_percentage) / 100
+        discount_amt = flt(discount_amount) or 0
+        discount_percentage_val = flt(discount_percentage) or 0
+        
+        if not discount_amt and discount_percentage_val:
+            discount_amt = base_amount * discount_percentage_val / 100
 
         payable_amount = base_amount - discount_amt
         if payable_amount < 0:
