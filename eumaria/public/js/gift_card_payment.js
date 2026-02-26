@@ -283,7 +283,11 @@ eumaria.gift_card.show_payment_dialog = function(frm, fields) {
 					return;
 				}
 
-				if ((Number(validation.remaining_amount) || 0) < (Number(values.total_payable) || 0)) {
+				// Compare with tolerance for floating-point rounding errors
+				// Round to 2 decimal places like server-side validation
+				const remaining = Math.round((Number(validation.remaining_amount) || 0) * 100) / 100;
+				const payable = Math.round((Number(values.total_payable) || 0) * 100) / 100;
+				if (remaining < payable) {
 					frappe.msgprint({
 						title: __("Insufficient Gift Card Balance"),
 						message: __("Gift card must fully cover the total payable amount."),
@@ -540,10 +544,13 @@ eumaria.gift_card.validate_discount = function(d, field) {
 				d.set_value("discount_amount", 0);
 			}
 			discount_amount = consultation_charge * (discount_percentage / 100);
+			// Round to 2 decimal places to avoid floating-point errors
+			discount_amount = Math.round(discount_amount * 100) / 100;
+			const total_payable = consultation_charge - discount_amount;
 
 			d.set_values({
 				discount_amount: discount_amount,
-				total_payable: consultation_charge - discount_amount,
+				total_payable: total_payable,
 			}).then(() => {
 				delete d.dialog_data.via_discount_percentage;
 			}).then(() => {
@@ -558,9 +565,13 @@ eumaria.gift_card.validate_discount = function(d, field) {
 			d.get_primary_btn().attr("disabled", false);
 			if (!(d.dialog_data && d.dialog_data.via_discount_percentage)) {
 				discount_percentage = (discount_amount / consultation_charge) * 100;
+				// Round to 2 decimal places to avoid floating-point errors
+				discount_percentage = Math.round(discount_percentage * 100) / 100;
+				const total_payable = consultation_charge - discount_amount;
+
 				d.set_values({
 					discount_percentage: discount_percentage,
-					total_payable: consultation_charge - discount_amount,
+					total_payable: total_payable,
 				}).then(() => {
 					eumaria.gift_card.revalidate_gift_card_on_discount_change(d);
 				});

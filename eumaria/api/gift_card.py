@@ -71,10 +71,11 @@ def get_gift_cards_for_customer(customer: str) -> list:
     active_cards = []
     for card in gift_cards:
         available_amount = get_available_gift_card_amount(frappe._dict(card))
-        if available_amount <= 0:
+        # Check if amount is greater than 0 with tolerance for floating-point errors
+        if flt(available_amount, 2) <= 0:
             continue
 
-        if flt(card.get("remaining_amount")) != available_amount:
+        if flt(card.get("remaining_amount"), 2) != flt(available_amount, 2):
             frappe.db.set_value("Eumaria Gift Card", card["name"], "remaining_amount", available_amount)
 
         card["remaining_amount"] = available_amount
@@ -120,12 +121,13 @@ def validate_gift_card(gift_card: str, amount: float, skip_balance_check: bool =
         
         available_amount = sync_gift_card_remaining_amount(doc.name)
 
-        # Check balance
-        if not skip_balance_check and available_amount < amount:
+        # Check balance with tolerance for floating-point rounding errors
+        # Use a small epsilon (0.01) to account for currency rounding
+        if not skip_balance_check and flt(available_amount - amount, 2) < 0:
             return {
                 "valid": False,
                 "message": _("Insufficient balance. Available: {0}, Required: {1}").format(
-                    available_amount, amount
+                    flt(available_amount, 2), flt(amount, 2)
                 )
             }
         
@@ -230,15 +232,15 @@ def create_gift_card_sales_invoice(
     
     if discount_percentage_val:
         sales_invoice.additional_discount_percentage = discount_percentage_val
-        paid_amount = appointment_paid_amount - (
+        paid_amount = flt(appointment_paid_amount - (
             appointment_paid_amount * (discount_percentage_val / 100)
-        )
+        ), 2)
 
     if discount_amount_val:
         sales_invoice.discount_amount = discount_amount_val
-        paid_amount = appointment_paid_amount - discount_amount_val
+        paid_amount = flt(appointment_paid_amount - discount_amount_val, 2)
 
-    paid_amount = max(flt(paid_amount), 0)
+    paid_amount = max(flt(paid_amount, 2), 0)
 
     sales_invoice.allocate_advances_automatically = 0
     sales_invoice.set_missing_values(for_validate=True)
@@ -260,11 +262,13 @@ def create_gift_card_sales_invoice(
             _("No available advance was found for Gift Card {0}.").format(gift_card_doc.name)
         )
 
-    if flt(matching_advance.advance_amount) < paid_amount:
+    # Check balance with tolerance for floating-point rounding errors
+    # Use flt with precision 2 for currency comparison
+    if flt(matching_advance.advance_amount - paid_amount, 2) < 0:
         frappe.throw(
             _("Insufficient gift card balance. Available: {0}, Required: {1}").format(
-                matching_advance.advance_amount,
-                paid_amount,
+                flt(matching_advance.advance_amount, 2),
+                flt(paid_amount, 2),
             )
         )
 
@@ -334,14 +338,14 @@ def invoice_appointment_with_gift_card(appointment_name: str, discount_percentag
         if base_amount is None:
             base_amount = 0
         
-        # Compute discounted amount
+        # Compute discounted amount with proper rounding
         discount_amt = flt(discount_amount) or 0
         discount_percentage_val = flt(discount_percentage) or 0
         
         if not discount_amt and discount_percentage_val:
-            discount_amt = base_amount * discount_percentage_val / 100
+            discount_amt = flt(base_amount * discount_percentage_val / 100, 2)
 
-        payable_amount = base_amount - discount_amt
+        payable_amount = flt(base_amount - discount_amt, 2)
         if payable_amount < 0:
             payable_amount = 0
 
