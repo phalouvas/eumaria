@@ -49,6 +49,7 @@
    "fieldname": "initial_amount",
    "fieldtype": "Currency",
    "label": "Amount",
+   "print_hide": 1,
    "reqd": 1
   },
   {
@@ -61,13 +62,14 @@
    "fieldtype": "Date",
    "in_list_view": 1,
    "label": "Starts On",
+   "print_hide": 1,
    "reqd": 1
   },
   {
    "fieldname": "ends_on",
    "fieldtype": "Date",
    "in_list_view": 1,
-   "label": "Ends On",
+   "label": "Valid Until",
    "reqd": 1
   },
   {
@@ -83,7 +85,8 @@
    "fieldtype": "Link",
    "hidden": 1,
    "label": "Customer",
-   "options": "Customer"
+   "options": "Customer",
+   "print_hide": 1
   },
   {
    "fieldname": "remaining_amount",
@@ -136,7 +139,7 @@
   {
    "fieldname": "description",
    "fieldtype": "Small Text",
-   "label": "Description"
+   "label": "Service"
   },
   {
    "fieldname": "column_break_ubhi",
@@ -151,7 +154,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-02-26 07:53:22.481383",
+ "modified": "2026-02-26 10:36:15.277673",
  "modified_by": "Administrator",
  "module": "Eumaria",
  "name": "Eumaria Gift Card",
