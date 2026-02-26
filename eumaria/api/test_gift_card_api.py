@@ -3,13 +3,13 @@
 
 import frappe
 from frappe import _
-from frappe.tests import FrappeTestCase
+from frappe.tests.utils import FrappeTestCase
 from frappe.utils import getdate, nowdate, add_days, flt
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, Mock
 
 
-class TestGiftCardAPI(FrappeTestCase):
+class TestGiftCardAPI(unittest.TestCase):
     """Unit tests for gift card API functions."""
 
     def setUp(self):

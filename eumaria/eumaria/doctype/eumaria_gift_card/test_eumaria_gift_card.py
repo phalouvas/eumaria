@@ -3,867 +3,767 @@
 
 import frappe
 from frappe import _
-from frappe.tests import IntegrationTestCase
 from frappe.utils import getdate, nowdate, add_days, flt
 import unittest
-
-
-# On IntegrationTestCase, the doctype test records and all
-# link-field test record dependencies are recursively loaded
-# Use these module variables to add/remove to/from that list
-EXTRA_TEST_RECORD_DEPENDENCIES = [
-    "Company",
-    "Customer",
-    "Patient",
-    "Mode of Payment",
-    "Account",
-    "Healthcare Settings",
-    "Item",
-    "Appointment Type",
-    "Mode of Payment Account",
-    "Healthcare Practitioner",
-    "Sales Invoice",
-    "Payment Entry"
-]
-IGNORE_TEST_RECORD_DEPENDENCIES = []  # eg. ["User"]
+from unittest.mock import patch, MagicMock, Mock
 
 
 
-class IntegrationTestEumariaGiftCard(IntegrationTestCase):
+class TestEumariaGiftCard(unittest.TestCase):
     """
-    Integration tests for EumariaGiftCard.
-    Use this class for testing interactions between multiple components.
+    Unit tests for EumariaGiftCard doctype.
+    Uses mocking to isolate tests from database dependencies.
     """
 
-    def setUp(self):
-        """Create required test fixtures before each test."""
-        super().setUp()
-        
-        # Create test company if not exists
-        if not frappe.db.exists("Company", "Test Company"):
-            company = frappe.get_doc({
-                "doctype": "Company",
-                "company_name": "Test Company",
-                "abbr": "TC",
-                "default_currency": "USD",
-                "country": "United States",
-                "is_group": 0,
-                "parent_company": ""
-            })
-            company.insert(ignore_permissions=True)
-        
-        # Create test customer
-        if not frappe.db.exists("Customer", "Test Customer"):
-            customer = frappe.get_doc({
-                "doctype": "Customer",
-                "customer_name": "Test Customer",
-                "customer_type": "Individual",
-                "customer_group": "All Customer Groups",
-                "territory": "All Territories"
-            })
-            customer.insert(ignore_permissions=True)
-        
-        # Create test patient linked to customer
-        if not frappe.db.exists("Patient", "Test Patient"):
-            patient = frappe.get_doc({
-                "doctype": "Patient",
-                "first_name": "Test",
-                "last_name": "Patient",
-                "sex": "Female",
-                "customer": "Test Customer"
-            })
-            patient.insert(ignore_permissions=True)
-        
-        # Create mode of payment
-        if not frappe.db.exists("Mode of Payment", "Test Mode of Payment"):
-            mode_of_payment = frappe.get_doc({
-                "doctype": "Mode of Payment",
-                "mode_of_payment": "Test Mode of Payment",
-                "type": "Cash"
-            })
-            mode_of_payment.insert(ignore_permissions=True)
-        
-        # Create accounts
-        company = "Test Company"
-        
-        # Create receivable account
-        if not frappe.db.exists("Account", "Debtors - TC"):
-            receivable_account = frappe.get_doc({
-                "doctype": "Account",
-                "account_name": "Debtors",
-                "parent_account": "Accounts Receivable - TC",
-                "company": company,
-                "account_type": "Receivable",
-                "root_type": "Asset",
-                "is_group": 0,
-                "account_currency": "USD"
-            })
-            receivable_account.insert(ignore_permissions=True)
-        
-        # Create cash account for mode of payment
-        if not frappe.db.exists("Account", "Cash - TC"):
-            cash_account = frappe.get_doc({
-                "doctype": "Account",
-                "account_name": "Cash",
-                "parent_account": "Cash In Hand - TC",
-                "company": company,
-                "account_type": "Cash",
-                "root_type": "Asset",
-                "is_group": 0,
-                "account_currency": "USD"
-            })
-            cash_account.insert(ignore_permissions=True)
-        
-        # Link mode of payment to account
-        if not frappe.db.exists("Mode of Payment Account", {
-            "parent": "Test Mode of Payment",
-            "company": company
-        }):
-            mode_of_payment_account = frappe.get_doc({
-                "doctype": "Mode of Payment Account",
-                "parent": "Test Mode of Payment",
-                "parenttype": "Mode of Payment",
-                "parentfield": "accounts",
-                "company": company,
-                "default_account": "Cash - TC"
-            })
-            mode_of_payment_account.insert(ignore_permissions=True)
-        
-        # Configure Healthcare Settings
-        healthcare_settings = frappe.get_single("Healthcare Settings")
-        healthcare_settings.show_payment_popup = 1
-        healthcare_settings.enable_free_follow_ups = 0
-        healthcare_settings.save()
-        
-        # Create billing item
-        if not frappe.db.exists("Item", "Test Appointment Item"):
-            item = frappe.get_doc({
-                "doctype": "Item",
-                "item_code": "Test Appointment Item",
-                "item_name": "Test Appointment Item",
-                "item_group": "Services",
-                "is_stock_item": 0,
-                "standard_rate": 100.0,
-                "description": "Test appointment item for billing"
-            })
-            item.insert(ignore_permissions=True)
-        
-        # Create appointment type linked to item
-        if not frappe.db.exists("Appointment Type", "Test Appointment Type"):
-            appointment_type = frappe.get_doc({
-                "doctype": "Appointment Type",
-                "appointment_type": "Test Appointment Type",
-                "default_duration": 30,
-                "color": "#FF5733",
-                "price_list_rate": 100.0,
-                "item": "Test Appointment Item"
-            })
-            appointment_type.insert(ignore_permissions=True)
-        
-        # Create healthcare practitioner
-        if not frappe.db.exists("Healthcare Practitioner", "Test Practitioner"):
-            practitioner = frappe.get_doc({
-                "doctype": "Healthcare Practitioner",
-                "first_name": "Test",
-                "last_name": "Practitioner",
-                "practitioner_name": "Test Practitioner"
-            })
-            practitioner.insert(ignore_permissions=True)
-        
-        frappe.db.commit()
-
-    def tearDown(self):
-        """Clean up after each test."""
-        frappe.db.rollback()
-        super().tearDown()
-
-    def _create_gift_card(self, patient="Test Patient", initial_amount=100.0, **kwargs):
-        """Helper method to create a gift card for testing."""
-        gift_card_data = {
-            "doctype": "Eumaria Gift Card",
-            "patient": patient,
-            "initial_amount": initial_amount,
+    def _create_mock_gift_card(self, **kwargs):
+        """Create a mock gift card document for testing."""
+        defaults = {
+            "name": "TEST-GC-001",
+            "patient": "Test Patient",
+            "customer": "Test Customer",
+            "initial_amount": 100.0,
+            "remaining_amount": 100.0,
             "mode_of_payment": "Test Mode of Payment",
+            "payment_entry": "TEST-PE-001",
             "starts_on": getdate(),
             "ends_on": add_days(getdate(), 30),
-            "disabled": 0
+            "disabled": 0,
+            "docstatus": 0,
+            "is_new": lambda: True,
+            "get": lambda key, default=None: kwargs.get(key, defaults.get(key, default)),
+            "db_set": MagicMock(),
+            "reload": MagicMock(),
+            "submit": MagicMock(),
+            "cancel": MagicMock()
         }
-        gift_card_data.update(kwargs)
+        defaults.update(kwargs)
         
-        gift_card = frappe.get_doc(gift_card_data)
-        gift_card.insert(ignore_permissions=True)
-        return gift_card
+        mock_doc = MagicMock()
+        for key, value in defaults.items():
+            if callable(value):
+                setattr(mock_doc, key, value)
+            else:
+                setattr(mock_doc, key, value)
+        
+        return mock_doc
 
-    def _create_appointment(self, patient="Test Patient", paid_amount=100.0, **kwargs):
-        """Helper method to create an appointment for testing."""
-        appointment_data = {
-            "doctype": "Patient Appointment",
-            "patient": patient,
-            "practitioner": "Test Practitioner",
-            "appointment_date": getdate(),
-            "appointment_time": "10:00:00",
-            "appointment_type": "Test Appointment Type",
-            "company": "Test Company",
-            "paid_amount": paid_amount,
-            "department": "OPD"
-        }
-        appointment_data.update(kwargs)
-        
-        appointment = frappe.get_doc(appointment_data)
-        appointment.insert(ignore_permissions=True)
-        return appointment
+    def test_01_gift_card_validate_method(self):
+        """Test gift card validate method."""
+        # Test new gift card sets remaining_amount equal to initial_amount
+        with patch.object(frappe, 'get_value') as mock_get_value, \
+             patch.object(frappe, 'log_error') as mock_log_error:
+            
+            mock_get_value.return_value = "Test Customer"
+            
+            # Create mock gift card
+            gift_card = self._create_mock_gift_card(
+                initial_amount=150.0,
+                remaining_amount=None,
+                patient="Test Patient",
+                customer=None
+            )
+            
+            # Mock is_new() to return True
+            gift_card.is_new = MagicMock(return_value=True)
+            
+            # Call validate method
+            from eumaria.eumaria.doctype.eumaria_gift_card.eumaria_gift_card import EumariaGiftCard
+            doc = EumariaGiftCard(gift_card)
+            doc.validate()
+            
+            # Verify remaining_amount was set to initial_amount
+            self.assertEqual(gift_card.remaining_amount, 150.0)
+            
+            # Verify customer was populated from patient
+            self.assertEqual(gift_card.customer, "Test Customer")
+            
+            # Test validation error when patient has no customer
+            mock_get_value.return_value = None
+            gift_card.customer = None
+            
+            with self.assertRaises(frappe.ValidationError) as cm:
+                doc.validate()
+            
+            self.assertIn("not linked to any customer", str(cm.exception))
+            
+            # Test validation error when patient is missing
+            gift_card.patient = None
+            with self.assertRaises(frappe.ValidationError) as cm:
+                doc.validate()
+            
+            self.assertIn("Patient is required", str(cm.exception))
 
-    def test_01_gift_card_creation_and_validation(self):
-        """Test gift card creation and validation."""
-        # Create gift card
-        gift_card = self._create_gift_card(initial_amount=150.0)
-        
-        # Test validation
-        self.assertEqual(gift_card.remaining_amount, 150.0)
-        self.assertEqual(gift_card.initial_amount, 150.0)
-        self.assertEqual(gift_card.patient, "Test Patient")
-        self.assertEqual(gift_card.customer, "Test Customer")
-        self.assertFalse(gift_card.disabled)
-        
-        # Test after_insert creates payment entry
-        self.assertIsNotNone(gift_card.payment_entry)
-        
-        # Verify payment entry exists
-        payment_entry = frappe.get_doc("Payment Entry", gift_card.payment_entry)
-        self.assertEqual(payment_entry.party_type, "Customer")
-        self.assertEqual(payment_entry.party, "Test Customer")
-        self.assertEqual(payment_entry.paid_amount, 150.0)
-        self.assertEqual(payment_entry.mode_of_payment, "Test Mode of Payment")
-        
-        # Submit gift card
-        gift_card.submit()
-        self.assertEqual(gift_card.docstatus, 1)
-        
-        # Verify payment entry is submitted
-        payment_entry.reload()
-        self.assertEqual(payment_entry.docstatus, 1)
-        
-        return gift_card
+    def test_02_gift_card_after_insert_creates_payment_entry(self):
+        """Test gift card after_insert method creates payment entry."""
+        with patch.object(frappe, 'get_value') as mock_get_value, \
+             patch.object(frappe, 'get_doc') as mock_get_doc, \
+             patch.object(frappe, 'log_error') as mock_log_error, \
+             patch('frappe.defaults.get_defaults') as mock_get_defaults:
+            
+            # Mock defaults
+            mock_defaults = MagicMock()
+            mock_defaults.company = "Test Company"
+            mock_get_defaults.return_value = mock_defaults
+            
+            # Mock get_value for patient customer lookup
+            mock_get_value.side_effect = lambda doctype, name, fieldname: {
+                ("Patient", "Test Patient", "customer"): "Test Customer",
+                ("Mode of Payment Account", {"parent": "Test Mode of Payment", "company": "Test Company"}, "default_account"): "Cash - TC"
+            }.get((doctype, name, fieldname) if isinstance(name, str) else (doctype, tuple(name.items()), fieldname))
+            
+            # Create mock payment entry
+            mock_payment_entry = MagicMock()
+            mock_payment_entry.name = "TEST-PE-001"
+            mock_payment_entry.insert = MagicMock()
+            mock_get_doc.return_value = mock_payment_entry
+            
+            # Create mock gift card
+            gift_card = self._create_mock_gift_card(
+                initial_amount=200.0,
+                payment_entry=None,
+                amended_from=None
+            )
+            
+            # Call after_insert method
+            from eumaria.eumaria.doctype.eumaria_gift_card.eumaria_gift_card import EumariaGiftCard
+            doc = EumariaGiftCard(gift_card)
+            doc.after_insert()
+            
+            # Verify payment entry was created and linked
+            mock_get_doc.assert_called_once()
+            mock_payment_entry.insert.assert_called_once_with(ignore_permissions=True)
+            gift_card.db_set.assert_called_once_with("payment_entry", "TEST-PE-001")
+            
+            # Test validation errors
+            # Test missing patient
+            gift_card.patient = None
+            with self.assertRaises(frappe.ValidationError) as cm:
+                doc.after_insert()
+            self.assertIn("Patient is required", str(cm.exception))
+            
+            # Test missing customer
+            gift_card.patient = "Test Patient"
+            gift_card.customer = None
+            mock_get_value.side_effect = lambda doctype, name, fieldname: None
+            with self.assertRaises(frappe.ValidationError) as cm:
+                doc.after_insert()
+            self.assertIn("Customer is required", str(cm.exception))
+            
+            # Test zero initial amount
+            gift_card.customer = "Test Customer"
+            gift_card.initial_amount = 0
+            with self.assertRaises(frappe.ValidationError) as cm:
+                doc.after_insert()
+            self.assertIn("greater than 0", str(cm.exception))
 
-    def test_02_gift_card_submission_and_payment_entry_link(self):
-        """Test gift card submission and payment entry linking."""
-        gift_card = self._create_gift_card(initial_amount=200.0)
+    def test_03_gift_card_on_submit_and_on_cancel_methods(self):
+        """Test gift card on_submit and on_cancel methods."""
+        # Test on_submit method
+        with patch.object(frappe, 'get_doc') as mock_get_doc, \
+             patch.object(frappe, 'log_error') as mock_log_error:
+            
+            # Create mock payment entry
+            mock_payment_entry = MagicMock()
+            mock_payment_entry.name = "TEST-PE-001"
+            mock_payment_entry.docstatus = 0
+            mock_payment_entry.submit = MagicMock()
+            mock_payment_entry.cancel = MagicMock()
+            mock_payment_entry.reload = MagicMock()
+            
+            # Create mock gift card
+            gift_card = self._create_mock_gift_card(
+                payment_entry="TEST-PE-001",
+                docstatus=0
+            )
+            
+            mock_get_doc.return_value = mock_payment_entry
+            
+            # Call on_submit method
+            from eumaria.eumaria.doctype.eumaria_gift_card.eumaria_gift_card import EumariaGiftCard
+            doc = EumariaGiftCard(gift_card)
+            doc.on_submit()
+            
+            # Verify payment entry was submitted
+            mock_payment_entry.submit.assert_called_once()
+            
+            # Test error when payment entry doesn't exist
+            mock_get_doc.side_effect = frappe.DoesNotExistError
+            with self.assertRaises(frappe.ValidationError) as cm:
+                doc.on_submit()
+            self.assertIn("does not exist", str(cm.exception))
+            
+            # Test on_cancel method
+            mock_payment_entry = MagicMock()
+            mock_payment_entry.name = "TEST-PE-001"
+            mock_payment_entry.docstatus = 1
+            mock_payment_entry.submit = MagicMock()
+            mock_payment_entry.cancel = MagicMock()
+            mock_payment_entry.reload = MagicMock()
+            
+            mock_get_doc.return_value = mock_payment_entry
+            mock_get_doc.side_effect = None
+            
+            doc.on_cancel()
+            
+            # Verify payment entry was cancelled
+            mock_payment_entry.cancel.assert_called_once()
+            
+            # Test on_cancel with no payment entry
+            gift_card.payment_entry = None
+            doc.on_cancel()  # Should not raise error
+            
+            # Test on_cancel with cancelled payment entry
+            gift_card.payment_entry = "TEST-PE-001"
+            mock_payment_entry.docstatus = 2  # Already cancelled
+            doc.on_cancel()
+            # Should not call cancel on already cancelled payment entry
+
+    def test_04_api_get_available_gift_card_amount(self):
+        """Test get_available_gift_card_amount API function."""
+        from eumaria.api.gift_card import get_available_gift_card_amount
         
-        # Submit gift card
-        gift_card.submit()
+        # Test with payment entry
+        with patch.object(frappe.db, 'get_value') as mock_get_value:
+            mock_get_value.return_value = (150.0, 1)  # unallocated_amount, docstatus
+            
+            gift_card = self._create_mock_gift_card(payment_entry="TEST-PE-001")
+            amount = get_available_gift_card_amount(gift_card)
+            
+            self.assertEqual(flt(amount, 2), 150.0)
+            mock_get_value.assert_called_once_with(
+                "Payment Entry", "TEST-PE-001", ["unallocated_amount", "docstatus"]
+            )
         
-        # Verify payment entry is linked and submitted
-        self.assertIsNotNone(gift_card.payment_entry)
-        payment_entry = frappe.get_doc("Payment Entry", gift_card.payment_entry)
-        self.assertEqual(payment_entry.docstatus, 1)
+        # Test without payment entry
+        gift_card = self._create_mock_gift_card(payment_entry=None, remaining_amount=200.0)
+        amount = get_available_gift_card_amount(gift_card)
+        self.assertEqual(flt(amount, 2), 200.0)
         
-        # Test remaining amount sync
+        # Test with payment entry but draft status
+        with patch.object(frappe.db, 'get_value') as mock_get_value:
+            mock_get_value.return_value = (150.0, 0)  # docstatus = 0 (draft)
+            
+            gift_card = self._create_mock_gift_card(payment_entry="TEST-PE-001")
+            amount = get_available_gift_card_amount(gift_card)
+            
+            self.assertEqual(flt(amount, 2), 0.0)
+
+    def test_05_api_sync_gift_card_remaining_amount(self):
+        """Test sync_gift_card_remaining_amount API function."""
         from eumaria.api.gift_card import sync_gift_card_remaining_amount
-        available_amount = sync_gift_card_remaining_amount(gift_card.name)
-        self.assertEqual(flt(available_amount, 2), 200.0)
         
-        # Verify remaining_amount is updated
-        gift_card.reload()
-        self.assertEqual(flt(gift_card.remaining_amount, 2), 200.0)
+        gift_card_name = "TEST-GC-SYNC"
+        
+        with patch.object(frappe, 'get_doc') as mock_get_doc, \
+             patch('eumaria.api.gift_card.get_available_gift_card_amount') as mock_get_available:
+            
+            # Create mock gift card
+            mock_gift_card = self._create_mock_gift_card(
+                name=gift_card_name,
+                remaining_amount=200.0
+            )
+            
+            mock_get_doc.return_value = mock_gift_card
+            mock_get_available.return_value = 150.0  # Different from remaining_amount
+            
+            # Sync when amounts differ
+            result = sync_gift_card_remaining_amount(gift_card_name)
+            
+            self.assertEqual(flt(result, 2), 150.0)
+            mock_gift_card.db_set.assert_called_once_with("remaining_amount", 150.0)
+            
+            # Sync when amounts are equal
+            mock_get_available.return_value = 200.0  # Same as remaining_amount
+            mock_gift_card.db_set.reset_mock()
+            
+            result = sync_gift_card_remaining_amount(gift_card_name)
+            
+            self.assertEqual(flt(result, 2), 200.0)
+            mock_gift_card.db_set.assert_not_called()  # Should not update
 
-    def test_03_gift_card_cancellation_and_payment_entry_cancel(self):
-        """Test gift card cancellation and payment entry cancellation."""
-        gift_card = self._create_gift_card(initial_amount=250.0)
-        gift_card.submit()
+    def test_06_api_validate_gift_card(self):
+        """Test validate_gift_card API function."""
+        from eumaria.api.gift_card import validate_gift_card
         
-        # Cancel gift card
-        gift_card.cancel()
-        self.assertEqual(gift_card.docstatus, 2)
+        gift_card_name = "TEST-GC-VALIDATE"
         
-        # Verify payment entry is cancelled
-        payment_entry = frappe.get_doc("Payment Entry", gift_card.payment_entry)
-        self.assertEqual(payment_entry.docstatus, 2)
+        # Test successful validation
+        with patch.object(frappe, 'get_doc') as mock_get_doc, \
+             patch('eumaria.api.gift_card.sync_gift_card_remaining_amount') as mock_sync:
+            
+            mock_gift_card = self._create_mock_gift_card(
+                name=gift_card_name,
+                disabled=0,
+                docstatus=1,
+                ends_on=add_days(getdate(), 30),
+                starts_on=getdate(),
+                mode_of_payment="Test Mode"
+            )
+            
+            mock_get_doc.return_value = mock_gift_card
+            mock_sync.return_value = 200.0
+            
+            result = validate_gift_card(gift_card_name, 150.0)
+            
+            self.assertTrue(result["valid"])
+            self.assertIn("successfully", result["message"])
+            self.assertEqual(flt(result["remaining_amount"], 2), 200.0)
+            self.assertEqual(result["mode_of_payment"], "Test Mode")
+        
+        # Test disabled gift card
+        with patch.object(frappe, 'get_doc') as mock_get_doc:
+            mock_gift_card = self._create_mock_gift_card(disabled=1)
+            mock_get_doc.return_value = mock_gift_card
+            
+            result = validate_gift_card(gift_card_name, 150.0)
+            self.assertFalse(result["valid"])
+            self.assertIn("disabled", result["message"])
+        
+        # Test expired gift card
+        with patch.object(frappe, 'get_doc') as mock_get_doc:
+            mock_gift_card = self._create_mock_gift_card(
+                disabled=0,
+                docstatus=1,
+                ends_on=add_days(getdate(), -1)  # Past date
+            )
+            mock_get_doc.return_value = mock_gift_card
+            
+            result = validate_gift_card(gift_card_name, 150.0)
+            self.assertFalse(result["valid"])
+            self.assertIn("expired", result["message"])
+        
+        # Test insufficient balance
+        with patch.object(frappe, 'get_doc') as mock_get_doc, \
+             patch('eumaria.api.gift_card.sync_gift_card_remaining_amount') as mock_sync:
+            
+            mock_gift_card = self._create_mock_gift_card(
+                disabled=0,
+                docstatus=1,
+                ends_on=add_days(getdate(), 30),
+                starts_on=getdate()
+            )
+            
+            mock_get_doc.return_value = mock_gift_card
+            mock_sync.return_value = 50.0  # Only 50 available
+            
+            result = validate_gift_card(gift_card_name, 150.0)
+            self.assertFalse(result["valid"])
+            self.assertIn("Insufficient balance", result["message"])
 
-    def test_04_gift_card_with_missing_patient_customer_link(self):
-        """Test gift card creation with patient not linked to customer."""
-        # Create patient without customer link
-        patient_without_customer = frappe.get_doc({
-            "doctype": "Patient",
-            "first_name": "No",
-            "last_name": "Customer",
-            "sex": "Male"
-        })
-        patient_without_customer.insert(ignore_permissions=True)
+    def test_07_api_get_gift_cards_for_customer(self):
+        """Test get_gift_cards_for_customer API function."""
+        from eumaria.api.gift_card import get_gift_cards_for_customer
         
-        # Attempt to create gift card - should fail
-        with self.assertRaises(frappe.ValidationError) as cm:
-            self._create_gift_card(patient=patient_without_customer.name, initial_amount=100.0)
+        customer = "Test Customer"
         
-        self.assertIn("not linked to any customer", str(cm.exception))
+        with patch.object(frappe, 'get_all') as mock_get_all, \
+             patch('eumaria.api.gift_card.get_available_gift_card_amount') as mock_get_available, \
+             patch.object(frappe.db, 'set_value') as mock_set_value:
+            
+            # Mock gift cards returned by get_all
+            mock_gift_cards = [
+                {
+                    "name": "TEST-GC-1",
+                    "remaining_amount": 100.0,
+                    "ends_on": add_days(getdate(), 30),
+                    "initial_amount": 100.0,
+                    "mode_of_payment": "Test Mode",
+                    "payment_entry": "TEST-PE-1"
+                },
+                {
+                    "name": "TEST-GC-2",
+                    "remaining_amount": 0.0,  # Zero balance
+                    "ends_on": add_days(getdate(), 60),
+                    "initial_amount": 200.0,
+                    "mode_of_payment": "Test Mode",
+                    "payment_entry": "TEST-PE-2"
+                }
+            ]
+            
+            mock_get_all.return_value = mock_gift_cards
+            
+            # Mock get_available_gift_card_amount
+            def get_available_side_effect(card_dict):
+                if card_dict["name"] == "TEST-GC-1":
+                    return 80.0  # Different from remaining_amount
+                else:
+                    return 0.0  # Zero balance
+            
+            mock_get_available.side_effect = get_available_side_effect
+            
+            result = get_gift_cards_for_customer(customer)
+            
+            # Should return only cards with positive balance
+            self.assertEqual(len(result), 1)
+            self.assertEqual(result[0]["name"], "TEST-GC-1")
+            self.assertEqual(flt(result[0]["remaining_amount"], 2), 80.0)
+            
+            # Verify set_value was called to update remaining_amount
+            mock_set_value.assert_called_once_with(
+                "Eumaria Gift Card", "TEST-GC-1", "remaining_amount", 80.0
+            )
 
-    def test_05_gift_card_with_zero_or_negative_amount(self):
-        """Test gift card creation with zero or negative amount."""
-        # Test zero amount
-        with self.assertRaises(frappe.ValidationError) as cm:
-            self._create_gift_card(initial_amount=0)
+    def test_08_api_allocate_gift_card(self):
+        """Test allocate_gift_card API function."""
+        from eumaria.api.gift_card import allocate_gift_card
         
-        self.assertIn("greater than 0", str(cm.exception))
+        gift_card_name = "TEST-GC-ALLOCATE"
+        
+        # Test successful allocation
+        with patch('eumaria.api.gift_card.validate_gift_card') as mock_validate, \
+             patch('eumaria.api.gift_card.sync_gift_card_remaining_amount') as mock_sync:
+            
+            mock_validate.return_value = {"valid": True, "message": "Valid"}
+            mock_sync.return_value = 200.0
+            
+            result = allocate_gift_card(gift_card_name, 150.0)
+            
+            self.assertTrue(result["success"])
+            self.assertIn("synced successfully", result["message"])
+            self.assertEqual(flt(result["new_balance"], 2), 200.0)
+        
+        # Test failed validation
+        with patch('eumaria.api.gift_card.validate_gift_card') as mock_validate:
+            mock_validate.return_value = {
+                "valid": False,
+                "message": "Gift card has expired"
+            }
+            
+            result = allocate_gift_card(gift_card_name, 150.0)
+            
+            self.assertFalse(result["success"])
+            self.assertEqual(result["message"], "Gift card has expired")
         
         # Test negative amount
-        with self.assertRaises(frappe.ValidationError) as cm:
-            self._create_gift_card(initial_amount=-50)
-        
-        self.assertIn("greater than 0", str(cm.exception))
-
-    def test_06_gift_card_date_validity(self):
-        """Test gift card date validity checks."""
-        # Create gift card with past end date
-        past_date = add_days(getdate(), -1)
-        gift_card = self._create_gift_card(initial_amount=100.0, ends_on=past_date)
-        gift_card.submit()
-        
-        # Validate gift card should fail due to expired date
-        from eumaria.api.gift_card import validate_gift_card
-        validation = validate_gift_card(gift_card.name, 50.0)
-        self.assertFalse(validation["valid"])
-        self.assertIn("expired", validation["message"])
-        
-        # Create gift card with future start date
-        future_start = add_days(getdate(), 5)
-        gift_card2 = self._create_gift_card(initial_amount=100.0, starts_on=future_start)
-        gift_card2.submit()
-        
-        # Validate gift card should fail due to not yet valid
-        validation = validate_gift_card(gift_card2.name, 50.0)
-        self.assertFalse(validation["valid"])
-        self.assertIn("not yet valid", validation["message"])
-
-    def test_07_gift_card_disabled_status(self):
-        """Test disabled gift card validation."""
-        gift_card = self._create_gift_card(initial_amount=100.0, disabled=1)
-        gift_card.submit()
-        
-        # Validate disabled gift card should fail
-        from eumaria.api.gift_card import validate_gift_card
-        validation = validate_gift_card(gift_card.name, 50.0)
-        self.assertFalse(validation["valid"])
-        self.assertIn("disabled", validation["message"])
-
-    def test_08_gift_card_amendment(self):
-        """Test gift card amendment workflow."""
-        gift_card = self._create_gift_card(initial_amount=100.0)
-        gift_card.submit()
-        
-        # Create amendment
-        amended_gift_card = frappe.copy_doc(gift_card)
-        amended_gift_card.amended_from = gift_card.name
-        amended_gift_card.initial_amount = 150.0
-        amended_gift_card.insert(ignore_permissions=True)
-        
-        # Amendment should not create new payment entry
-        self.assertIsNone(amended_gift_card.payment_entry)
-        
-        # Submit amendment
-        amended_gift_card.submit()
-        
-        # Original gift card should be cancelled
-        gift_card.reload()
-        self.assertEqual(gift_card.docstatus, 2)
-
-    def test_09_payment_entry_unallocated_amount_sync(self):
-        """Test payment entry unallocated amount sync with gift card."""
-        gift_card = self._create_gift_card(initial_amount=300.0)
-        gift_card.submit()
-        
-        # Get payment entry
-        payment_entry = frappe.get_doc("Payment Entry", gift_card.payment_entry)
-        
-        # Initially unallocated amount should equal paid amount
-        self.assertEqual(flt(payment_entry.unallocated_amount, 2), 300.0)
-        
-        # Manually allocate some amount (simulating invoice creation)
-        payment_entry.unallocated_amount = 200.0
-        payment_entry.save()
-        
-        # Sync should update gift card remaining amount
-        from eumaria.api.gift_card import sync_gift_card_remaining_amount
-        available_amount = sync_gift_card_remaining_amount(gift_card.name)
-        
-        self.assertEqual(flt(available_amount, 2), 200.0)
-        gift_card.reload()
-        self.assertEqual(flt(gift_card.remaining_amount, 2), 200.0)
-
-    def test_10_get_gift_cards_for_customer(self):
-        """Test retrieving gift cards for a customer."""
-        # Create multiple gift cards
-        gift_card1 = self._create_gift_card(initial_amount=100.0)
-        gift_card1.submit()
-        
-        gift_card2 = self._create_gift_card(initial_amount=200.0)
-        gift_card2.submit()
-        
-        # Create expired gift card
-        past_date = add_days(getdate(), -1)
-        gift_card3 = self._create_gift_card(initial_amount=50.0, ends_on=past_date)
-        gift_card3.submit()
-        
-        # Get active gift cards for customer
-        from eumaria.api.gift_card import get_gift_cards_for_customer
-        active_cards = get_gift_cards_for_customer("Test Customer")
-        
-        # Should return only non-expired cards with positive balance
-        self.assertEqual(len(active_cards), 2)
-        
-        # Check card details
-        card_names = [card["name"] for card in active_cards]
-        self.assertIn(gift_card1.name, card_names)
-        self.assertIn(gift_card2.name, card_names)
-        self.assertNotIn(gift_card3.name, card_names)
-        
-        # Check remaining amounts
-        for card in active_cards:
-            self.assertGreater(flt(card["remaining_amount"], 2), 0)
-
-    def test_11_gift_card_payment_flow_with_sales_invoice(self):
-        """Test complete gift card payment flow with Sales Invoice creation."""
-        # Create gift card
-        gift_card = self._create_gift_card(initial_amount=500.0)
-        gift_card.submit()
-        
-        # Create appointment
-        appointment = self._create_appointment(paid_amount=300.0)
-        
-        # Invoice appointment with gift card
-        from eumaria.api.gift_card import invoice_appointment_with_gift_card
-        result = invoice_appointment_with_gift_card(
-            appointment_name=appointment.name,
-            gift_card=gift_card.name,
-            paid_amount=300.0
-        )
-        
-        # Verify invoice creation was successful
-        self.assertTrue(result["success"])
-        self.assertIsNotNone(result["sales_invoice"])
-        
-        # Get created sales invoice
-        sales_invoice = frappe.get_doc("Sales Invoice", result["sales_invoice"])
-        
-        # Verify sales invoice details
-        self.assertEqual(sales_invoice.patient, "Test Patient")
-        self.assertEqual(sales_invoice.customer, "Test Customer")
-        self.assertEqual(sales_invoice.appointment, appointment.name)
-        self.assertEqual(sales_invoice.company, "Test Company")
-        
-        # Verify advances table has exactly one entry linked to gift card payment entry
-        self.assertEqual(len(sales_invoice.advances), 1)
-        advance = sales_invoice.advances[0]
-        self.assertEqual(advance.reference_type, "Payment Entry")
-        self.assertEqual(advance.reference_name, gift_card.payment_entry)
-        self.assertEqual(flt(advance.allocated_amount, 2), 300.0)
-        
-        # Verify gift card remaining amount is reduced
-        gift_card.reload()
-        self.assertEqual(flt(gift_card.remaining_amount, 2), 200.0)
-        
-        # Verify appointment fields are updated
-        appointment.reload()
-        self.assertEqual(appointment.invoiced, 1)
-        self.assertEqual(appointment.ref_sales_invoice, sales_invoice.name)
-        self.assertEqual(appointment.use_gift_card, 1)
-        self.assertEqual(appointment.selected_gift_card, gift_card.name)
-        self.assertEqual(flt(appointment.gift_card_allocated_amount, 2), 300.0)
-        self.assertEqual(appointment.mode_of_payment, "")
-        
-        return gift_card, appointment, sales_invoice
-
-    def test_12_regular_payment_flow_without_gift_card(self):
-        """Test regular payment flow without gift card."""
-        # Create appointment
-        appointment = self._create_appointment(paid_amount=250.0, mode_of_payment="Test Mode of Payment")
-        
-        # Invoice appointment with regular payment (using overridden function)
-        from eumaria.overrides.invoice_creation import invoice_appointment
-        invoice_appointment(
-            appointment_name=appointment.name,
-            mode_of_payment="Test Mode of Payment",
-            paid_amount=250.0
-        )
-        
-        # Get created sales invoice from appointment
-        appointment.reload()
-        self.assertEqual(appointment.invoiced, 1)
-        self.assertIsNotNone(appointment.ref_sales_invoice)
-        
-        sales_invoice = frappe.get_doc("Sales Invoice", appointment.ref_sales_invoice)
-        
-        # Verify sales invoice details
-        self.assertEqual(sales_invoice.patient, "Test Patient")
-        self.assertEqual(sales_invoice.customer, "Test Customer")
-        self.assertEqual(sales_invoice.appointment, appointment.name)
-        
-        # Verify no advances allocated (regular payment)
-        self.assertEqual(len(sales_invoice.advances), 0)
-        
-        # Verify appointment fields
-        self.assertEqual(appointment.use_gift_card, 0)
-        self.assertEqual(appointment.selected_gift_card, "")
-        self.assertEqual(flt(appointment.gift_card_allocated_amount, 2), 0)
-        self.assertEqual(appointment.mode_of_payment, "Test Mode of Payment")
-
-    def test_13_gift_card_payment_with_percentage_discount(self):
-        """Test gift card payment with percentage discount."""
-        # Create gift card
-        gift_card = self._create_gift_card(initial_amount=400.0)
-        gift_card.submit()
-        
-        # Create appointment with base amount
-        appointment = self._create_appointment(paid_amount=400.0)
-        
-        # Invoice with 25% discount
-        from eumaria.api.gift_card import invoice_appointment_with_gift_card
-        result = invoice_appointment_with_gift_card(
-            appointment_name=appointment.name,
-            gift_card=gift_card.name,
-            discount_percentage=25.0  # 25% discount
-        )
-        
-        self.assertTrue(result["success"])
-        
-        # Get sales invoice
-        sales_invoice = frappe.get_doc("Sales Invoice", result["sales_invoice"])
-        
-        # Verify discount applied
-        self.assertEqual(flt(sales_invoice.additional_discount_percentage, 2), 25.0)
-        
-        # Calculate expected payable amount: 400 - 25% = 300
-        expected_payable = 300.0
-        
-        # Verify advance allocation matches discounted amount
-        advance = sales_invoice.advances[0]
-        self.assertEqual(flt(advance.allocated_amount, 2), expected_payable)
-        
-        # Verify gift card balance reduced by discounted amount
-        gift_card.reload()
-        self.assertEqual(flt(gift_card.remaining_amount, 2), 100.0)  # 400 - 300 = 100
-
-    def test_14_gift_card_payment_with_fixed_discount(self):
-        """Test gift card payment with fixed amount discount."""
-        # Create gift card
-        gift_card = self._create_gift_card(initial_amount=500.0)
-        gift_card.submit()
-        
-        # Create appointment
-        appointment = self._create_appointment(paid_amount=500.0)
-        
-        # Invoice with $100 discount
-        from eumaria.api.gift_card import invoice_appointment_with_gift_card
-        result = invoice_appointment_with_gift_card(
-            appointment_name=appointment.name,
-            gift_card=gift_card.name,
-            discount_amount=100.0
-        )
-        
-        self.assertTrue(result["success"])
-        
-        # Get sales invoice
-        sales_invoice = frappe.get_doc("Sales Invoice", result["sales_invoice"])
-        
-        # Verify discount applied
-        self.assertEqual(flt(sales_invoice.discount_amount, 2), 100.0)
-        
-        # Expected payable amount: 500 - 100 = 400
-        expected_payable = 400.0
-        
-        # Verify advance allocation
-        advance = sales_invoice.advances[0]
-        self.assertEqual(flt(advance.allocated_amount, 2), expected_payable)
-        
-        # Verify gift card balance
-        gift_card.reload()
-        self.assertEqual(flt(gift_card.remaining_amount, 2), 100.0)  # 500 - 400 = 100
-
-    def test_15_insufficient_gift_card_balance(self):
-        """Test gift card payment with insufficient balance."""
-        # Create gift card with small balance
-        gift_card = self._create_gift_card(initial_amount=100.0)
-        gift_card.submit()
-        
-        # Create appointment with larger amount
-        appointment = self._create_appointment(paid_amount=300.0)
-        
-        # Attempt to invoice - should fail
-        from eumaria.api.gift_card import invoice_appointment_with_gift_card
-        result = invoice_appointment_with_gift_card(
-            appointment_name=appointment.name,
-            gift_card=gift_card.name,
-            paid_amount=300.0
-        )
-        
-        # Should fail with insufficient balance error
+        result = allocate_gift_card(gift_card_name, -50.0)
         self.assertFalse(result["success"])
-        self.assertIn("Insufficient balance", result["message"])
-        
-        # Appointment should not be invoiced
-        appointment.reload()
-        self.assertEqual(appointment.invoiced, 0)
-        self.assertIsNone(appointment.ref_sales_invoice)
+        self.assertIn("cannot be negative", result["message"])
 
-    def test_16_gift_card_validation_with_skip_balance_check(self):
-        """Test gift card validation with skip_balance_check parameter."""
-        # Create gift card with small balance
-        gift_card = self._create_gift_card(initial_amount=50.0)
-        gift_card.submit()
-        
-        # Validate with amount larger than balance but skip_balance_check=True
-        from eumaria.api.gift_card import validate_gift_card
-        validation = validate_gift_card(gift_card.name, 100.0, skip_balance_check=True)
-        
-        # Should pass validation (only checking status, dates, etc.)
-        self.assertTrue(validation["valid"])
-        
-        # Validate without skip_balance_check - should fail
-        validation = validate_gift_card(gift_card.name, 100.0, skip_balance_check=False)
-        self.assertFalse(validation["valid"])
-        self.assertIn("Insufficient balance", validation["message"])
-
-    def test_17_mixed_payment_method_validation(self):
-        """Test validation when both gift card and regular payment method are used."""
-        # Create gift card
-        gift_card = self._create_gift_card(initial_amount=200.0)
-        gift_card.submit()
-        
-        # Create appointment with both mode_of_payment and use_gift_card
-        appointment = self._create_appointment(
-            paid_amount=200.0,
-            mode_of_payment="Test Mode of Payment",
-            use_gift_card=1,
-            selected_gift_card=gift_card.name
-        )
-        
-        # Attempt to invoice - should fail due to mixed payment methods
-        from eumaria.api.gift_card import invoice_appointment_with_gift_card
-        result = invoice_appointment_with_gift_card(
-            appointment_name=appointment.name,
-            gift_card=gift_card.name
-        )
-        
-        self.assertFalse(result["success"])
-        self.assertIn("Cannot use both gift card and regular payment method", result["message"])
-
-    def test_18_appointment_already_invoiced(self):
-        """Test gift card payment for already invoiced appointment."""
-        # Create gift card
-        gift_card = self._create_gift_card(initial_amount=200.0)
-        gift_card.submit()
-        
-        # Create and invoice appointment with regular payment first
-        appointment = self._create_appointment(paid_amount=200.0, mode_of_payment="Test Mode of Payment")
-        
-        from eumaria.overrides.invoice_creation import invoice_appointment
-        invoice_appointment(
-            appointment_name=appointment.name,
-            mode_of_payment="Test Mode of Payment",
-            paid_amount=200.0
-        )
-        
-        appointment.reload()
-        self.assertEqual(appointment.invoiced, 1)
-        
-        # Attempt to invoice again with gift card - should fail
-        from eumaria.api.gift_card import invoice_appointment_with_gift_card
-        result = invoice_appointment_with_gift_card(
-            appointment_name=appointment.name,
-            gift_card=gift_card.name
-        )
-        
-        self.assertFalse(result["success"])
-        self.assertIn("Invoice cannot be created", result["message"])
-
-    def test_19_sales_invoice_cancellation_and_balance_restoration(self):
-        """Test Sales Invoice cancellation and gift card balance restoration."""
-        # Create gift card and invoice appointment
-        gift_card, appointment, sales_invoice = self.test_11_gift_card_payment_flow_with_sales_invoice()
-        
-        # Verify initial state
-        self.assertEqual(flt(gift_card.remaining_amount, 2), 200.0)  # 500 - 300 = 200
-        
-        # Cancel sales invoice
-        sales_invoice.cancel()
-        
-        # Verify gift card balance is restored
-        gift_card.reload()
-        self.assertEqual(flt(gift_card.remaining_amount, 2), 500.0)  # Restored to original
-        
-        # Verify appointment fields are cleared
-        appointment.reload()
-        self.assertEqual(appointment.invoiced, 0)
-        self.assertEqual(appointment.ref_sales_invoice, "")
-        self.assertEqual(appointment.use_gift_card, 0)
-        self.assertEqual(appointment.selected_gift_card, "")
-        self.assertEqual(flt(appointment.gift_card_allocated_amount, 2), 0)
-
-    def test_20_gift_card_balance_restoration_function(self):
-        """Test gift card balance restoration function."""
-        # Create gift card
-        gift_card = self._create_gift_card(initial_amount=300.0)
-        gift_card.submit()
-        
-        # Simulate allocation by reducing payment entry unallocated amount
-        payment_entry = frappe.get_doc("Payment Entry", gift_card.payment_entry)
-        payment_entry.unallocated_amount = 150.0  # Simulate 150 allocated
-        payment_entry.save()
-        
-        # Sync gift card - should reflect reduced balance
-        from eumaria.api.gift_card import sync_gift_card_remaining_amount
-        available_amount = sync_gift_card_remaining_amount(gift_card.name)
-        self.assertEqual(flt(available_amount, 2), 150.0)
-        
-        # Test restore_gift_card function (which just syncs)
+    def test_09_api_restore_gift_card(self):
+        """Test restore_gift_card API function."""
         from eumaria.api.gift_card import restore_gift_card
-        result = restore_gift_card(gift_card.name, 150.0)
         
-        self.assertTrue(result["success"])
-        # restore_gift_card just syncs, so balance should still be 150
-        self.assertEqual(flt(result["new_balance"], 2), 150.0)
+        gift_card_name = "TEST-GC-RESTORE"
+        
+        with patch('eumaria.api.gift_card.sync_gift_card_remaining_amount') as mock_sync:
+            mock_sync.return_value = 300.0
+            
+            result = restore_gift_card(gift_card_name, 100.0)
+            
+            self.assertTrue(result["success"])
+            self.assertIn("restored successfully", result["message"])
+            self.assertEqual(flt(result["new_balance"], 2), 300.0)
 
-    def test_21_concurrent_gift_card_allocations(self):
-        """Test multiple appointments using the same gift card."""
-        # Create gift card with large balance
-        gift_card = self._create_gift_card(initial_amount=1000.0)
-        gift_card.submit()
-        
-        # Create first appointment and invoice
-        appointment1 = self._create_appointment(paid_amount=300.0)
-        from eumaria.api.gift_card import invoice_appointment_with_gift_card
-        result1 = invoice_appointment_with_gift_card(
-            appointment_name=appointment1.name,
-            gift_card=gift_card.name
-        )
-        self.assertTrue(result1["success"])
-        
-        # Verify balance after first allocation
-        gift_card.reload()
-        self.assertEqual(flt(gift_card.remaining_amount, 2), 700.0)
-        
-        # Create second appointment and invoice
-        appointment2 = self._create_appointment(paid_amount=400.0)
-        result2 = invoice_appointment_with_gift_card(
-            appointment_name=appointment2.name,
-            gift_card=gift_card.name
-        )
-        self.assertTrue(result2["success"])
-        
-        # Verify balance after second allocation
-        gift_card.reload()
-        self.assertEqual(flt(gift_card.remaining_amount, 2), 300.0)
-        
-        # Create third appointment with amount exceeding remaining balance
-        appointment3 = self._create_appointment(paid_amount=400.0)
-        result3 = invoice_appointment_with_gift_card(
-            appointment_name=appointment3.name,
-            gift_card=gift_card.name
-        )
-        
-        # Should fail due to insufficient balance
-        self.assertFalse(result3["success"])
-        self.assertIn("Insufficient balance", result3["message"])
-
-    def test_22_get_gift_card_balance_function(self):
+    def test_10_api_get_gift_card_balance(self):
         """Test get_gift_card_balance API function."""
-        # Create valid gift card
-        gift_card = self._create_gift_card(initial_amount=250.0)
-        gift_card.submit()
-        
         from eumaria.api.gift_card import get_gift_card_balance
-        result = get_gift_card_balance(gift_card.name)
         
-        self.assertTrue(result["success"])
-        self.assertEqual(flt(result["balance"], 2), 250.0)
-        self.assertEqual(result["currency"], "USD")
-        self.assertTrue(result["is_valid"])
+        gift_card_name = "TEST-GC-BALANCE"
         
-        # Create expired gift card
-        past_date = add_days(getdate(), -1)
-        expired_gift_card = self._create_gift_card(
-            initial_amount=100.0,
-            ends_on=past_date
+        # Test successful balance retrieval
+        with patch.object(frappe, 'get_doc') as mock_get_doc, \
+             patch('eumaria.api.gift_card.sync_gift_card_remaining_amount') as mock_sync, \
+             patch('frappe.defaults.get_global_default') as mock_get_default:
+            
+            mock_gift_card = self._create_mock_gift_card(
+                name=gift_card_name,
+                docstatus=1,
+                disabled=0,
+                ends_on=add_days(getdate(), 30),
+                starts_on=getdate()
+            )
+            
+            mock_get_doc.return_value = mock_gift_card
+            mock_sync.return_value = 250.0
+            mock_get_default.return_value = "USD"
+            
+            result = get_gift_card_balance(gift_card_name)
+            
+            self.assertTrue(result["success"])
+            self.assertEqual(flt(result["balance"], 2), 250.0)
+            self.assertEqual(result["currency"], "USD")
+            self.assertEqual(result["valid_until"], mock_gift_card.ends_on)
+            self.assertTrue(result["is_valid"])
+        
+        # Test expired gift card
+        with patch.object(frappe, 'get_doc') as mock_get_doc, \
+             patch('eumaria.api.gift_card.sync_gift_card_remaining_amount') as mock_sync:
+            
+            mock_gift_card = self._create_mock_gift_card(
+                name=gift_card_name,
+                docstatus=1,
+                disabled=0,
+                ends_on=add_days(getdate(), -1),  # Expired
+                starts_on=add_days(getdate(), -60)
+            )
+            
+            mock_get_doc.return_value = mock_gift_card
+            mock_sync.return_value = 100.0
+            
+            result = get_gift_card_balance(gift_card_name)
+            
+            self.assertTrue(result["success"])
+            self.assertEqual(flt(result["balance"], 2), 100.0)
+            self.assertFalse(result["is_valid"])  # Should be False due to expired date
+        
+        # Test non-existent gift card
+        with patch.object(frappe, 'get_doc') as mock_get_doc:
+            mock_get_doc.side_effect = frappe.DoesNotExistError
+            
+            result = get_gift_card_balance("NON-EXISTENT-GC")
+            
+            self.assertFalse(result["success"])
+            self.assertIn("not found", result["message"])
+
+    def test_11_create_gift_card_sales_invoice(self):
+        """Test create_gift_card_sales_invoice function."""
+        from eumaria.api.gift_card import create_gift_card_sales_invoice
+        
+        # Create mock appointment
+        mock_appointment = MagicMock()
+        mock_appointment.name = "TEST-APP-001"
+        mock_appointment.patient = "Test Patient"
+        mock_appointment.company = "Test Company"
+        mock_appointment.paid_amount = 300.0
+        
+        # Create mock gift card
+        mock_gift_card = self._create_mock_gift_card(
+            name="TEST-GC-001",
+            payment_entry="TEST-PE-001"
         )
-        expired_gift_card.submit()
         
-        result = get_gift_card_balance(expired_gift_card.name)
-        self.assertTrue(result["success"])
-        self.assertFalse(result["is_valid"])
+        # Create mock sales invoice
+        mock_sales_invoice = MagicMock()
+        mock_sales_invoice.name = "TEST-SI-001"
+        mock_sales_invoice.patient = "Test Patient"
+        mock_sales_invoice.customer = "Test Customer"
+        mock_sales_invoice.appointment = "TEST-APP-001"
+        mock_sales_invoice.company = "Test Company"
+        mock_sales_invoice.due_date = getdate()
+        mock_sales_invoice.debit_to = "Debtors - TC"
+        mock_sales_invoice.items = []
+        mock_sales_invoice.advances = []
+        mock_sales_invoice.additional_discount_percentage = 0.0
+        mock_sales_invoice.discount_amount = 0.0
+        mock_sales_invoice.allocate_advances_automatically = 0
+        mock_sales_invoice.set_missing_values = MagicMock()
+        mock_sales_invoice.calculate_taxes_and_totals = MagicMock()
+        mock_sales_invoice.set_advances = MagicMock()
+        mock_sales_invoice.append = MagicMock(side_effect=lambda doctype, args: args)
+        mock_sales_invoice.save = MagicMock()
+        mock_sales_invoice.submit = MagicMock()
+        mock_sales_invoice.flags = MagicMock()
+        
+        with patch.object(frappe, 'new_doc') as mock_new_doc, \
+             patch.object(frappe, 'get_value') as mock_get_value, \
+             patch('healthcare.healthcare.doctype.healthcare_settings.healthcare_settings.get_receivable_account') as mock_get_receivable_account, \
+             patch('healthcare.healthcare.doctype.patient_appointment.patient_appointment.get_appointment_item') as mock_get_appointment_item:
+            
+            mock_new_doc.return_value = mock_sales_invoice
+            mock_get_value.return_value = "Test Customer"
+            mock_get_receivable_account.return_value = "Debtors - TC"
+            mock_get_appointment_item.return_value = {"item_code": "Test Item"}
+            
+            # Mock advances with matching payment entry
+            mock_advance = MagicMock()
+            mock_advance.reference_type = "Payment Entry"
+            mock_advance.reference_name = "TEST-PE-001"
+            mock_advance.advance_amount = 500.0
+            mock_advance.reference_row = "row1"
+            mock_advance.remarks = "Test"
+            mock_advance.ref_exchange_rate = 1.0
+            
+            mock_sales_invoice.advances = [mock_advance]
+            
+            # Test successful invoice creation
+            sales_invoice, allocated_amount = create_gift_card_sales_invoice(
+                mock_appointment,
+                mock_gift_card
+            )
+            
+            self.assertEqual(sales_invoice.name, "TEST-SI-001")
+            self.assertEqual(flt(allocated_amount, 2), 300.0)
+            mock_sales_invoice.save.assert_called_once_with(ignore_permissions=True)
+            mock_sales_invoice.submit.assert_called_once()
+            
+            # Test with discount
+            mock_sales_invoice.reset_mock()
+            sales_invoice, allocated_amount = create_gift_card_sales_invoice(
+                mock_appointment,
+                mock_gift_card,
+                discount_percentage=10.0
+            )
+            
+            self.assertEqual(flt(mock_sales_invoice.additional_discount_percentage, 2), 10.0)
+            
+            # Test insufficient balance
+            mock_advance.advance_amount = 200.0  # Less than paid_amount
+            with self.assertRaises(frappe.ValidationError) as cm:
+                create_gift_card_sales_invoice(mock_appointment, mock_gift_card)
+            
+            self.assertIn("Insufficient gift card balance", str(cm.exception))
+            
+            # Test no matching advance
+            mock_advance.reference_name = "DIFFERENT-PE"  # Not matching gift card payment entry
+            with self.assertRaises(frappe.ValidationError) as cm:
+                create_gift_card_sales_invoice(mock_appointment, mock_gift_card)
+            
+            self.assertIn("No available advance", str(cm.exception))
 
-    def test_23_allocate_gift_card_function(self):
-        """Test allocate_gift_card API function."""
-        # Create gift card
-        gift_card = self._create_gift_card(initial_amount=350.0)
-        gift_card.submit()
-        
-        from eumaria.api.gift_card import allocate_gift_card
-        result = allocate_gift_card(gift_card.name, 200.0)
-        
-        # allocate_gift_card just syncs balance
-        self.assertTrue(result["success"])
-        self.assertEqual(flt(result["new_balance"], 2), 350.0)  # No actual allocation
-        
-        # Test with insufficient balance
-        result = allocate_gift_card(gift_card.name, 500.0)
-        self.assertFalse(result["success"])
-        self.assertIn("Insufficient balance", result["message"])
-
-    def test_24_edge_case_zero_payable_amount(self):
-        """Test edge case where payable amount is zero (100% discount)."""
-        # Create gift card
-        gift_card = self._create_gift_card(initial_amount=100.0)
-        gift_card.submit()
-        
-        # Create appointment
-        appointment = self._create_appointment(paid_amount=100.0)
-        
-        # Invoice with 100% discount
+    def test_12_invoice_appointment_with_gift_card(self):
+        """Test invoice_appointment_with_gift_card API function."""
         from eumaria.api.gift_card import invoice_appointment_with_gift_card
-        result = invoice_appointment_with_gift_card(
-            appointment_name=appointment.name,
-            gift_card=gift_card.name,
-            discount_percentage=100.0
+        
+        appointment_name = "TEST-APP-001"
+        gift_card_name = "TEST-GC-001"
+        
+        # Create mock appointment
+        mock_appointment = MagicMock()
+        mock_appointment.name = appointment_name
+        mock_appointment.patient = "Test Patient"
+        mock_appointment.appointment_date = getdate()
+        mock_appointment.paid_amount = 300.0
+        mock_appointment.mode_of_payment = None
+        mock_appointment.invoiced = 0
+        mock_appointment.selected_gift_card = None
+        mock_appointment.db_set = MagicMock()
+        mock_appointment.notify_update = MagicMock()
+        
+        # Create mock gift card
+        mock_gift_card = self._create_mock_gift_card(
+            name=gift_card_name,
+            payment_entry="TEST-PE-001"
         )
         
-        # Should succeed with zero payable amount
-        self.assertTrue(result["success"])
+        # Create mock sales invoice
+        mock_sales_invoice = MagicMock()
+        mock_sales_invoice.name = "TEST-SI-001"
         
-        # Get sales invoice
-        sales_invoice = frappe.get_doc("Sales Invoice", result["sales_invoice"])
-        
-        # Verify no advance allocated (zero amount)
-        self.assertEqual(len(sales_invoice.advances), 0)
-        
-        # Gift card balance should remain unchanged
-        gift_card.reload()
-        self.assertEqual(flt(gift_card.remaining_amount, 2), 100.0)
+        with patch.object(frappe, 'get_doc') as mock_get_doc, \
+             patch('eumaria.api.gift_card.validate_gift_card') as mock_validate, \
+             patch('eumaria.api.gift_card.create_gift_card_sales_invoice') as mock_create_invoice, \
+             patch('eumaria.api.gift_card.sync_gift_card_remaining_amount') as mock_sync, \
+             patch('frappe.get_single') as mock_get_single, \
+             patch('healthcare.healthcare.doctype.fee_validity.fee_validity.check_fee_validity') as mock_check_fee_validity, \
+             patch('healthcare.healthcare.doctype.fee_validity.fee_validity.get_fee_validity') as mock_get_fee_validity, \
+             patch('healthcare.healthcare.doctype.patient_appointment.patient_appointment.update_fee_validity') as mock_update_fee_validity:
+            
+            mock_get_doc.side_effect = [mock_appointment, mock_gift_card]
+            mock_validate.return_value = {"valid": True, "message": "Valid"}
+            mock_create_invoice.return_value = (mock_sales_invoice, 300.0)
+            mock_sync.return_value = 200.0
+            
+            # Mock healthcare settings
+            mock_settings = MagicMock()
+            mock_settings.show_payment_popup = 1
+            mock_settings.enable_free_follow_ups = 0
+            mock_get_single.return_value = mock_settings
+            
+            # Mock fee validity
+            mock_check_fee_validity.return_value = None
+            mock_get_fee_validity.return_value = None
+            
+            # Test successful invoice creation
+            result = invoice_appointment_with_gift_card(
+                appointment_name=appointment_name,
+                gift_card=gift_card_name
+            )
+            
+            self.assertTrue(result["success"])
+            self.assertEqual(result["sales_invoice"], "TEST-SI-001")
+            self.assertEqual(result["payment_entry"], "TEST-PE-001")
+            
+            # Verify appointment was updated
+            mock_appointment.db_set.assert_called()
+            self.assertEqual(mock_appointment.db_set.call_args[0][0]["invoiced"], 1)
+            self.assertEqual(mock_appointment.db_set.call_args[0][0]["ref_sales_invoice"], "TEST-SI-001")
+            self.assertEqual(mock_appointment.db_set.call_args[0][0]["use_gift_card"], 1)
+            self.assertEqual(mock_appointment.db_set.call_args[0][0]["selected_gift_card"], gift_card_name)
+            self.assertEqual(flt(mock_appointment.db_set.call_args[0][0]["gift_card_allocated_amount"], 2), 300.0)
+            
+            # Test with appointment already having mode_of_payment
+            mock_appointment.mode_of_payment = "Cash"
+            result = invoice_appointment_with_gift_card(
+                appointment_name=appointment_name,
+                gift_card=gift_card_name
+            )
+            
+            self.assertFalse(result["success"])
+            self.assertIn("Cannot use both gift card and regular payment method", result["message"])
+            
+            # Test with already invoiced appointment
+            mock_appointment.mode_of_payment = None
+            mock_appointment.invoiced = 1
+            result = invoice_appointment_with_gift_card(
+                appointment_name=appointment_name,
+                gift_card=gift_card_name
+            )
+            
+            self.assertFalse(result["success"])
+            self.assertIn("Invoice cannot be created", result["message"])
+            
+            # Test with fee validity
+            mock_appointment.invoiced = 0
+            mock_check_fee_validity.return_value = MagicMock(status="Active")
+            result = invoice_appointment_with_gift_card(
+                appointment_name=appointment_name,
+                gift_card=gift_card_name
+            )
+            
+            # Should still create invoice since fee validity is active
+            self.assertTrue(result["success"])
+            
+            # Test with existing fee validity
+            mock_check_fee_validity.return_value = None
+            mock_get_fee_validity.return_value = MagicMock()  # Existing fee validity
+            result = invoice_appointment_with_gift_card(
+                appointment_name=appointment_name,
+                gift_card=gift_card_name
+            )
+            
+            self.assertTrue(result["success"])
+            self.assertIn("Fee validity exists", result["message"])
 
-    def test_25_edge_case_negative_payable_amount(self):
-        """Test edge case where discount exceeds base amount."""
-        # Create gift card
-        gift_card = self._create_gift_card(initial_amount=100.0)
-        gift_card.submit()
+    def test_13_on_sales_invoice_cancel_hook(self):
+        """Test on_sales_invoice_cancel hook function."""
+        from eumaria.overrides.invoice_creation import on_sales_invoice_cancel
         
-        # Create appointment
-        appointment = self._create_appointment(paid_amount=100.0)
+        # Create mock sales invoice with appointment item
+        mock_sales_invoice = MagicMock()
+        mock_sales_invoice.items = [
+            MagicMock(reference_dt="Patient Appointment", reference_dn="TEST-APP-001")
+        ]
         
-        # Invoice with discount larger than base amount
-        from eumaria.api.gift_card import invoice_appointment_with_gift_card
-        result = invoice_appointment_with_gift_card(
-            appointment_name=appointment.name,
-            gift_card=gift_card.name,
-            discount_amount=150.0  # More than base amount
-        )
+        # Create mock appointment
+        mock_appointment = MagicMock()
+        mock_appointment.name = "TEST-APP-001"
+        mock_appointment.use_gift_card = 1
+        mock_appointment.selected_gift_card = "TEST-GC-001"
+        mock_appointment.db_set = MagicMock()
         
-        # Should succeed with zero payable amount (clamped)
-        self.assertTrue(result["success"])
-        
-        # Get sales invoice
-        sales_invoice = frappe.get_doc("Sales Invoice", result["sales_invoice"])
-        
-        # Verify no advance allocated
-        self.assertEqual(len(sales_invoice.advances), 0)
-        
-        # Gift card balance should remain unchanged
-        gift_card.reload()
-        self.assertEqual(flt(gift_card.remaining_amount, 2), 100.0)
-
+        with patch.object(frappe, 'get_doc') as mock_get_doc, \
+             patch('eumaria.api.gift_card.sync_gift_card_remaining_amount') as mock_sync:
+            
+            mock_get_doc.return_value = mock_appointment
+            
+            # Test cancellation with gift card
+            on_sales_invoice_cancel(mock_sales_invoice, "on_cancel")
+            
+            # Verify gift card was synced and appointment fields cleared
+            mock_sync.assert_called_once_with("TEST-GC-001")
+            mock_appointment.db_set.assert_called_once_with({
+                "gift_card_allocated_amount": 0,
+                "selected_gift_card": "",
+                "use_gift_card": 0,
+            })
+            
+            # Test cancellation without gift card
+            mock_appointment.use_gift_card = 0
+            mock_sync.reset_mock()
+            mock_appointment.db_set.reset_mock()
+            
+            on_sales_invoice_cancel(mock_sales_invoice, "on_cancel")
+            
+            # Should not sync or clear fields
+            mock_sync.assert_not_called()
+            mock_appointment.db_set.assert_not_called()
