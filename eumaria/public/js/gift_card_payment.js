@@ -67,11 +67,15 @@ eumaria.gift_card.update_gift_card_filter = function(frm) {
 		frappe.db.get_value("Patient", frm.doc.patient, "customer").then(r => {
 			if (r.message.customer) {
 				frm.fields_dict.selected_gift_card.get_query = function() {
+					const today = frappe.datetime.get_today();
 					return {
 						filters: {
 							customer: r.message.customer,
 							disabled: 0,
-							docstatus: 1
+							docstatus: 1,
+							remaining_amount: [">", 0],
+							ends_on: [">=", today],
+							starts_on: ["<=", today]
 						}
 					};
 				};
@@ -371,11 +375,15 @@ eumaria.gift_card.show_payment_dialog = function(frm, fields) {
 		frappe.db.get_value("Patient", frm.doc.patient, "customer").then(r => {
 			if (r.message.customer) {
 				d.fields_dict.gift_card.df.get_query = function() {
+					const today = frappe.datetime.get_today();
 					return {
 						filters: {
 							customer: r.message.customer,
 							disabled: 0,
-							docstatus: 1
+							docstatus: 1,
+							remaining_amount: [">", 0],
+							ends_on: [">=", today],
+							starts_on: ["<=", today]
 						}
 					};
 				};
