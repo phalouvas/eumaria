@@ -198,4 +198,5 @@ def send_custom_appointment_sms(appointment_name: str, message: str) -> None:
 		frappe.log_error(frappe.get_traceback(), _("Custom Appointment SMS Not Sent"))
 		frappe.throw(_("Appointment SMS could not be sent. Please check SMS Settings."))
 
+	appointment.add_comment("Info", _("Custom SMS sent to {0}.").format(patient_mobile))
 	frappe.msgprint(_("SMS sent to {0}.").format(patient_mobile), alert=True)
