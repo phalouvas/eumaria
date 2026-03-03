@@ -120,7 +120,12 @@ class PatientAppointment(core_patient_appointment.PatientAppointment):
 		self.set_payment_details()
 
 		if not getattr(self, "is_group_session", 0):
-			core_patient_appointment.send_confirmation_msg(self)
+			message = frappe.db.get_single_value("Healthcare Settings", "appointment_confirmation_msg")
+			if not message:
+				message = _("Your appointment is scheduled for {0}.").format(
+					_get_appointment_datetime_for_sms(self)
+				)
+			_send_templated_sms(self, message, "Appointment SMS Not Sent")
 
 		self.insert_calendar_event()
 
@@ -141,6 +146,31 @@ def _add_sms_activity(appointment_name: str, content: str) -> None:
 			"content": content,
 		}
 	).insert(ignore_permissions=True)
+
+
+def _get_appointment_datetime_for_sms(appointment) -> str:
+	"""Return appointment datetime formatted for SMS templates."""
+	appointment_datetime = get_datetime(
+		f"{appointment.appointment_date} {appointment.appointment_time or '00:00:00'}"
+	)
+	return appointment_datetime.strftime("%d-%b-%Y %H:%M")
+
+
+def _render_sms_template(template: str, appointment) -> str:
+	"""Render a message template with custom appointment datetime formatting."""
+	doc_context = appointment.as_dict()
+	doc_context["appointment_datetime"] = _get_appointment_datetime_for_sms(appointment)
+	return frappe.render_template(template, {"doc": doc_context})
+
+
+def _send_templated_sms(appointment, template: str, error_title: str) -> None:
+	"""Render a template and send SMS using Healthcare's sender utility."""
+	rendered_message = _render_sms_template(template, appointment)
+	try:
+		core_patient_appointment.send_message(appointment, rendered_message)
+	except Exception:
+		frappe.log_error(frappe.get_traceback(), _(error_title))
+		frappe.throw(_("Appointment SMS could not be sent. Please check SMS Settings."))
 
 
 @frappe.whitelist()
@@ -170,13 +200,11 @@ def send_appointment_sms(appointment_name: str) -> None:
 	# Use configured message if available, otherwise use default
 	message = frappe.db.get_single_value("Healthcare Settings", "appointment_confirmation_msg")
 	if not message:
-		message = "Your appointment is scheduled for {appointment_date} at {appointment_time}."
+		message = _("Your appointment is scheduled for {0}.").format(
+			_get_appointment_datetime_for_sms(appointment)
+		)
 
-	try:
-		core_patient_appointment.send_message(appointment, message)
-	except Exception:
-		frappe.log_error(frappe.get_traceback(), _("Appointment SMS Not Sent"))
-		frappe.throw(_("Appointment SMS could not be sent. Please check SMS Settings."))
+	_send_templated_sms(appointment, message, "Appointment SMS Not Sent")
 
 	appointment.db_set("reminded", 1)
 	_add_sms_activity(appointment.name, _("Manual SMS sent to {0}.").format(patient_mobile))
@@ -234,11 +262,7 @@ def send_payment_appointment_sms(appointment_name: str, show_alert: bool = True)
 			_("Set Appointment Payment Message in Healthcare Settings before sending payment SMS.")
 		)
 
-	try:
-		core_patient_appointment.send_message(appointment, message)
-	except Exception:
-		frappe.log_error(frappe.get_traceback(), _("Appointment Payment SMS Not Sent"))
-		frappe.throw(_("Appointment SMS could not be sent. Please check SMS Settings."))
+	_send_templated_sms(appointment, message, "Appointment Payment SMS Not Sent")
 
 	_add_sms_activity(appointment.name, _("Payment SMS sent to {0}.").format(patient_mobile))
 	if show_alert:
