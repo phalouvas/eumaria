@@ -130,6 +130,19 @@ class PatientAppointment(core_patient_appointment.PatientAppointment):
 			)
 
 
+def _add_sms_activity(appointment_name: str, content: str) -> None:
+	"""Write an explicit timeline comment entry for SMS actions."""
+	frappe.get_doc(
+		{
+			"doctype": "Comment",
+			"comment_type": "Info",
+			"reference_doctype": "Patient Appointment",
+			"reference_name": appointment_name,
+			"content": content,
+		}
+	).insert(ignore_permissions=True)
+
+
 @frappe.whitelist()
 def send_appointment_sms(appointment_name: str) -> None:
 	"""Send confirmation SMS manually for a future appointment.
@@ -166,5 +179,67 @@ def send_appointment_sms(appointment_name: str) -> None:
 		frappe.throw(_("Appointment SMS could not be sent. Please check SMS Settings."))
 
 	appointment.db_set("reminded", 1)
-	appointment.add_comment("Info", _("Manual SMS sent to {0}.").format(patient_mobile))
+	_add_sms_activity(appointment.name, _("Manual SMS sent to {0}.").format(patient_mobile))
 	frappe.msgprint(_("SMS sent to {0}.").format(patient_mobile), alert=True)
+
+
+@frappe.whitelist()
+def send_custom_appointment_sms(appointment_name: str, message: str) -> None:
+	"""Send a user-composed SMS manually for a future appointment."""
+
+	appointment = frappe.get_doc("Patient Appointment", appointment_name)
+
+	if not appointment.appointment_date:
+		raise frappe.ValidationError(_("Appointment date is required to send SMS."))
+
+	appointment_datetime = get_datetime(
+		f"{appointment.appointment_date} {appointment.appointment_time or '00:00:00'}"
+	)
+	if appointment_datetime <= now_datetime():
+		raise frappe.ValidationError(_("SMS can only be sent for future appointments."))
+
+	patient_mobile = frappe.db.get_value("Patient", appointment.patient, "mobile")
+	if not patient_mobile:
+		raise frappe.ValidationError(_("Patient does not have a mobile number set."))
+
+	if not message or not str(message).strip():
+		raise frappe.ValidationError(_("Message is required."))
+
+	try:
+		core_patient_appointment.send_message(appointment, str(message).strip())
+	except Exception:
+		frappe.log_error(frappe.get_traceback(), _("Custom Appointment SMS Not Sent"))
+		frappe.throw(_("Appointment SMS could not be sent. Please check SMS Settings."))
+
+	_add_sms_activity(appointment.name, _("Custom SMS sent to {0}.").format(patient_mobile))
+	frappe.msgprint(_("SMS sent to {0}.").format(patient_mobile), alert=True)
+
+
+@frappe.whitelist()
+def send_payment_appointment_sms(appointment_name: str, show_alert: bool = True) -> None:
+	"""Send payment SMS manually for a paid appointment using Healthcare Settings template."""
+
+	appointment = frappe.get_doc("Patient Appointment", appointment_name)
+
+	if flt(appointment.paid_amount) <= 0:
+		raise frappe.ValidationError(_("Payment SMS can only be sent for paid appointments."))
+
+	patient_mobile = frappe.db.get_value("Patient", appointment.patient, "mobile")
+	if not patient_mobile:
+		raise frappe.ValidationError(_("Patient does not have a mobile number set."))
+
+	message = frappe.db.get_single_value("Healthcare Settings", "appointment_payment_msg")
+	if not message:
+		raise frappe.ValidationError(
+			_("Set Appointment Payment Message in Healthcare Settings before sending payment SMS.")
+		)
+
+	try:
+		core_patient_appointment.send_message(appointment, message)
+	except Exception:
+		frappe.log_error(frappe.get_traceback(), _("Appointment Payment SMS Not Sent"))
+		frappe.throw(_("Appointment SMS could not be sent. Please check SMS Settings."))
+
+	_add_sms_activity(appointment.name, _("Payment SMS sent to {0}.").format(patient_mobile))
+	if show_alert:
+		frappe.msgprint(_("SMS sent to {0}.").format(patient_mobile), alert=True)

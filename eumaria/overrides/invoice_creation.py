@@ -3,10 +3,12 @@
 
 import frappe
 from frappe import _
+from frappe.utils import cint
 from healthcare.healthcare.doctype.patient_appointment.patient_appointment import (
     invoice_appointment as original_invoice_appointment,
     cancel_appointment as original_cancel_appointment,
 )
+from eumaria.overrides.patient_appointment import send_payment_appointment_sms
 
 
 @frappe.whitelist()
@@ -17,6 +19,7 @@ def invoice_appointment(appointment_name: str, discount_percentage: float = 0, d
     Override the invoice_appointment function to handle gift card payments.
     """
     appointment_doc = frappe.get_doc("Patient Appointment", appointment_name)
+    was_invoiced = cint(appointment_doc.invoiced) == 1
     
     # Update appointment with provided payment details if given
     update_fields = {}
@@ -50,11 +53,33 @@ def invoice_appointment(appointment_name: str, discount_percentage: float = 0, d
         
         if not result.get("success"):
             frappe.throw(result.get("message"))
+
+        appointment_doc.reload()
+        is_now_invoiced = cint(appointment_doc.invoiced) == 1
+        if not was_invoiced and is_now_invoiced:
+            try:
+                send_payment_appointment_sms(appointment_name, show_alert=False)
+            except Exception:
+                frappe.log_error(
+                    frappe.get_traceback(),
+                    _("Appointment Payment SMS Auto Send Failed"),
+                )
         
         return
     
     # Otherwise, use the original function
     original_invoice_appointment(appointment_name, discount_percentage, discount_amount)
+
+    appointment_doc.reload()
+    is_now_invoiced = cint(appointment_doc.invoiced) == 1
+    if not was_invoiced and is_now_invoiced:
+        try:
+            send_payment_appointment_sms(appointment_name, show_alert=False)
+        except Exception:
+            frappe.log_error(
+                frappe.get_traceback(),
+                _("Appointment Payment SMS Auto Send Failed"),
+            )
 
 
 def cancel_appointment(appointment_id):
