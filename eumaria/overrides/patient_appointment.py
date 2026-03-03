@@ -130,6 +130,19 @@ class PatientAppointment(core_patient_appointment.PatientAppointment):
 			)
 
 
+def _add_sms_activity(appointment_name: str, content: str) -> None:
+	"""Write an explicit timeline comment entry for SMS actions."""
+	frappe.get_doc(
+		{
+			"doctype": "Comment",
+			"comment_type": "Info",
+			"reference_doctype": "Patient Appointment",
+			"reference_name": appointment_name,
+			"content": content,
+		}
+	).insert(ignore_permissions=True)
+
+
 @frappe.whitelist()
 def send_appointment_sms(appointment_name: str) -> None:
 	"""Send confirmation SMS manually for a future appointment.
@@ -166,7 +179,7 @@ def send_appointment_sms(appointment_name: str) -> None:
 		frappe.throw(_("Appointment SMS could not be sent. Please check SMS Settings."))
 
 	appointment.db_set("reminded", 1)
-	appointment.add_comment("Info", _("Manual SMS sent to {0}.").format(patient_mobile))
+	_add_sms_activity(appointment.name, _("Manual SMS sent to {0}.").format(patient_mobile))
 	frappe.msgprint(_("SMS sent to {0}.").format(patient_mobile), alert=True)
 
 
@@ -198,12 +211,12 @@ def send_custom_appointment_sms(appointment_name: str, message: str) -> None:
 		frappe.log_error(frappe.get_traceback(), _("Custom Appointment SMS Not Sent"))
 		frappe.throw(_("Appointment SMS could not be sent. Please check SMS Settings."))
 
-	appointment.add_comment("Info", _("Custom SMS sent to {0}.").format(patient_mobile))
+	_add_sms_activity(appointment.name, _("Custom SMS sent to {0}.").format(patient_mobile))
 	frappe.msgprint(_("SMS sent to {0}.").format(patient_mobile), alert=True)
 
 
 @frappe.whitelist()
-def send_payment_appointment_sms(appointment_name: str) -> None:
+def send_payment_appointment_sms(appointment_name: str, show_alert: bool = True) -> None:
 	"""Send payment SMS manually for a paid appointment using Healthcare Settings template."""
 
 	appointment = frappe.get_doc("Patient Appointment", appointment_name)
@@ -227,5 +240,6 @@ def send_payment_appointment_sms(appointment_name: str) -> None:
 		frappe.log_error(frappe.get_traceback(), _("Appointment Payment SMS Not Sent"))
 		frappe.throw(_("Appointment SMS could not be sent. Please check SMS Settings."))
 
-	appointment.add_comment("Info", _("Payment SMS sent to {0}.").format(patient_mobile))
-	frappe.msgprint(_("SMS sent to {0}.").format(patient_mobile), alert=True)
+	_add_sms_activity(appointment.name, _("Payment SMS sent to {0}.").format(patient_mobile))
+	if show_alert:
+		frappe.msgprint(_("SMS sent to {0}.").format(patient_mobile), alert=True)
