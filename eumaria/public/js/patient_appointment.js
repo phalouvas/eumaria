@@ -10,7 +10,7 @@ frappe.ui.form.on('Patient Appointment', {
 		}
 
 		frm.add_custom_button(
-			__('Send SMS'),
+			__('Send Confirmation SMS'),
 			() => {
 				frappe.call({
 					method: 'eumaria.overrides.patient_appointment.send_appointment_sms',
@@ -23,7 +23,46 @@ frappe.ui.form.on('Patient Appointment', {
 						}
 					},
 				});
-			}
+			},
+			__('SMS')
+		);
+
+		frm.add_custom_button(
+			__('Compose SMS'),
+			() => {
+				const dialog = new frappe.ui.Dialog({
+					title: __('Compose SMS'),
+					fields: [
+						{
+							fieldname: 'message',
+							fieldtype: 'Small Text',
+							label: __('Message'),
+							reqd: 1,
+						},
+					],
+					primary_action_label: __('Send'),
+					primary_action: (values) => {
+						frappe.call({
+							method: 'eumaria.overrides.patient_appointment.send_custom_appointment_sms',
+							args: {
+								appointment_name: frm.doc.name,
+								message: values.message,
+							},
+							freeze: true,
+							freeze_message: __('Sending SMS...'),
+							callback: (r) => {
+								if (!r.exc) {
+									dialog.hide();
+									frm.reload_doc();
+								}
+							},
+						});
+					},
+				});
+
+				dialog.show();
+			},
+			__('SMS')
 		);
 	},
 });
