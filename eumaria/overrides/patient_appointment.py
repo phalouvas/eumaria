@@ -149,11 +149,35 @@ def _add_sms_activity(appointment_name: str, content: str) -> None:
 
 
 def _get_appointment_datetime_for_sms(appointment) -> str:
-	"""Return appointment datetime formatted for SMS templates."""
+	"""Return appointment datetime formatted for SMS templates with weekday."""
 	appointment_datetime = get_datetime(
 		f"{appointment.appointment_date} {appointment.appointment_time or '00:00:00'}"
 	)
-	return appointment_datetime.strftime("%d-%b-%Y %H:%M")
+
+	weekday_names_en = [
+		"Monday",
+		"Tuesday",
+		"Wednesday",
+		"Thursday",
+		"Friday",
+		"Saturday",
+		"Sunday",
+	]
+	weekday_names_el = [
+		"Δευτέρα",
+		"Τρίτη",
+		"Τετάρτη",
+		"Πέμπτη",
+		"Παρασκευή",
+		"Σάββατο",
+		"Κυριακή",
+	]
+
+	active_lang = (getattr(frappe.local, "lang", "") or "").lower()
+	weekday_names = weekday_names_el if active_lang.startswith("el") else weekday_names_en
+	weekday_name = weekday_names[appointment_datetime.weekday()]
+
+	return f"{weekday_name} {appointment_datetime.strftime('%d-%b-%Y %H:%M')}"
 
 
 def _render_sms_template(template: str, appointment) -> str:
