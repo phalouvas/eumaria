@@ -89,7 +89,10 @@ doctype_calendar_js = {
 
 # before_install = "eumaria.install.before_install"
 after_install = "eumaria.physiotherapy.custom_fields.execute"
-after_migrate = "eumaria.physiotherapy.custom_fields.execute"
+after_migrate = [
+	"eumaria.physiotherapy.custom_fields.execute",
+	"eumaria.overrides.appointment_reminder_override.ensure_scheduler_uses_eumaria_reminder",
+]
 
 # Uninstallation
 # ------------
