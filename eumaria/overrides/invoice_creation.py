@@ -52,6 +52,7 @@ def invoice_appointment(appointment_name: str, discount_percentage: float = 0, d
         if not result.get("success"):
             frappe.throw(result.get("message"))
 
+    original_invoice_appointment(appointment_name, discount_percentage, discount_amount)
     appointment_doc.reload()
 
 def cancel_appointment(appointment_id):
