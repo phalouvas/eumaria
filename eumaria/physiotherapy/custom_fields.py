@@ -89,15 +89,6 @@ def execute():
 				"description": "Upload the base silhouette image for annotation",
 			},
 		],
-		"Healthcare Settings": [
-			{
-				"fieldname": "appointment_payment_msg",
-				"label": "Appointment Payment Message",
-				"fieldtype": "Text",
-				"insert_after": "appointment_confirmation_msg",
-				"description": "Template used when sending manual payment SMS for appointments.",
-			},
-		],
 	}
 
 	create_custom_fields(custom_fields, update=True)
