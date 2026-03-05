@@ -6,3 +6,4 @@
 # Patches added in this section will be executed after doctypes are migrated
 eumaria.patches.remove_group_appointment_fields
 eumaria.patches.remove_group_appointment_attendee_doctype
+eumaria.patches.override_appointment_reminder_scheduler
