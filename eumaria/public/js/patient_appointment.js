@@ -62,26 +62,7 @@ frappe.ui.form.on('Patient Appointment', {
 				__('SMS')
 			);
 		}
-
-		if (is_paid_appointment(frm)) {
-			frm.add_custom_button(
-				__('Send Payment SMS'),
-				() => {
-					frappe.call({
-						method: 'eumaria.overrides.patient_appointment.send_payment_appointment_sms',
-						args: { appointment_name: frm.doc.name },
-						freeze: true,
-						freeze_message: __('Sending SMS...'),
-						callback: (r) => {
-							if (!r.exc) {
-								frm.reload_doc();
-							}
-						},
-					});
-				},
-				__('SMS')
-			);
-		}
+		
 	},
 });
 
