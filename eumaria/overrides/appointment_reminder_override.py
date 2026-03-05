@@ -40,7 +40,7 @@ def send_appointment_reminder():
     remind_before = frappe.db.get_single_value("Healthcare Settings", "remind_before")
     remind_delta = _to_timedelta(remind_before)
 
-    now_dt = datetime.datetime.now()
+    now_dt = frappe.utils.now_datetime()
     reminder_dt = now_dt + remind_delta
 
     if reminder_dt <= now_dt:
