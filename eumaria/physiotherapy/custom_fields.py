@@ -98,6 +98,8 @@ def execute():
 	set_comments_in_list_view()
 	make_score_field_optional()
 	create_or_update_patient_assessment_print_format()
+	create_or_update_therapy_type_print_format()
+	create_or_update_therapy_plan_print_format()
 	set_practitioner_ignore_user_permissions()
 
 	set_default_patient_appointment_view()
@@ -266,3 +268,249 @@ def create_or_update_patient_assessment_print_format():
 				"html": html,
 			}
 		).insert(ignore_permissions=True)
+
+
+def create_or_update_therapy_type_print_format():
+	"""Create/update Therapy Type print with all linked exercise details and images."""
+	name = "Therapy Type With Exercises"
+	existing = frappe.db.exists("Print Format", name)
+	html = """
+	<h2>Therapy Type</h2>
+	<table class="table table-bordered table-sm" style="margin-bottom: 16px;">
+		<tr>
+			<td><strong>Therapy Type</strong></td>
+			<td>{{ doc.therapy_type or "" }}</td>
+			<td><strong>Medical Department</strong></td>
+			<td>{{ doc.medical_department or "" }}</td>
+		</tr>
+		<tr>
+			<td><strong>Default Duration (Minutes)</strong></td>
+			<td>{{ doc.default_duration or "" }}</td>
+			<td><strong>Healthcare Service Unit</strong></td>
+			<td>{{ doc.healthcare_service_unit or "" }}</td>
+		</tr>
+		<tr>
+			<td><strong>Description</strong></td>
+			<td colspan="3">{{ doc.description or "" }}</td>
+		</tr>
+	</table>
+
+	<h4>Exercise Types</h4>
+	{% if doc.exercises %}
+	<table class="table table-bordered table-sm">
+		<thead>
+			<tr>
+				<th style="width: 20%;">Exercise Type</th>
+				<th style="width: 15%;">Difficulty Level</th>
+				<th style="width: 12%;">Counts Target</th>
+				<th style="width: 15%;">Assistance Level</th>
+				<th style="width: 38%;">Instructions / Images</th>
+			</tr>
+		</thead>
+		<tbody>
+		{% for row in doc.exercises %}
+			{% set exercise_doc = frappe.get_doc("Exercise Type", row.exercise_type) if row.exercise_type else None %}
+			<tr>
+				<td>{{ row.exercise_type or "" }}</td>
+				<td>{{ row.difficulty_level or (exercise_doc.difficulty_level if exercise_doc else "") }}</td>
+				<td>{{ row.counts_target or "" }}</td>
+				<td>{{ row.assistance_level or "" }}</td>
+				<td>
+					{% if exercise_doc and exercise_doc.description %}
+						<div style="margin-bottom: 6px;"><strong>Description:</strong> {{ exercise_doc.description }}</div>
+					{% endif %}
+
+					{% if exercise_doc and exercise_doc.exercise_steps %}
+						{% set instructions_path = exercise_doc.exercise_steps %}
+						{% set lower_path = instructions_path|lower %}
+						{% if lower_path.endswith('.png') or lower_path.endswith('.jpg') or lower_path.endswith('.jpeg') or lower_path.endswith('.gif') or lower_path.endswith('.bmp') or lower_path.endswith('.webp') %}
+							<div style="margin-bottom: 6px;"><strong>Exercise Instructions:</strong></div>
+							<img src="{{ instructions_path }}" style="max-width: 240px; max-height: 180px; height: auto; width: auto;" />
+						{% else %}
+							<div><strong>Exercise Instructions:</strong> <a href="{{ instructions_path }}" target="_blank">{{ instructions_path }}</a></div>
+						{% endif %}
+					{% endif %}
+
+					{% if exercise_doc and exercise_doc.steps_table %}
+						<div style="margin-top: 8px;"><strong>Exercise Steps:</strong></div>
+						{% for step in exercise_doc.steps_table %}
+							<div style="margin-top: 4px; padding: 6px; border: 1px solid #ddd;">
+								{% if step.title %}<div><strong>{{ step.title }}</strong></div>{% endif %}
+								{% if step.description %}<div>{{ step.description }}</div>{% endif %}
+								{% if step.image %}
+									<img src="{{ step.image }}" style="margin-top: 4px; max-width: 220px; max-height: 160px; height: auto; width: auto;" />
+								{% endif %}
+							</div>
+						{% endfor %}
+					{% endif %}
+				</td>
+			</tr>
+		{% endfor %}
+		</tbody>
+	</table>
+	{% else %}
+	<p>No exercises configured.</p>
+	{% endif %}
+	"""
+
+	_create_or_update_print_format(
+		name=name,
+		doc_type="Therapy Type",
+		html=html,
+		existing=existing,
+	)
+
+
+def create_or_update_therapy_plan_print_format():
+	"""Create/update Therapy Plan print with therapy details and nested exercises."""
+	name = "Therapy Plan Full"
+	existing = frappe.db.exists("Print Format", name)
+	html = """
+	<h2>Therapy Plan</h2>
+	<table class="table table-bordered table-sm" style="margin-bottom: 16px;">
+		<tr>
+			<td><strong>Plan</strong></td>
+			<td>{{ doc.name }}</td>
+			<td><strong>Patient</strong></td>
+			<td>{{ doc.patient or "" }}</td>
+		</tr>
+		<tr>
+			<td><strong>Start Date</strong></td>
+			<td>{{ frappe.utils.formatdate(doc.start_date) if doc.start_date else "" }}</td>
+			<td><strong>Status</strong></td>
+			<td>{{ doc.status or "" }}</td>
+		</tr>
+		<tr>
+			<td><strong>Company</strong></td>
+			<td>{{ doc.company or "" }}</td>
+			<td><strong>Template</strong></td>
+			<td>{{ doc.therapy_plan_template or "" }}</td>
+		</tr>
+		<tr>
+			<td><strong>Total Sessions</strong></td>
+			<td>{{ doc.total_sessions or 0 }}</td>
+			<td><strong>Sessions Completed</strong></td>
+			<td>{{ doc.total_sessions_completed or 0 }}</td>
+		</tr>
+	</table>
+
+	<h4>Therapy Types In Plan</h4>
+	{% if doc.therapy_plan_details %}
+	{% for detail in doc.therapy_plan_details %}
+		<div style="margin-bottom: 14px;">
+			<table class="table table-bordered table-sm" style="margin-bottom: 8px;">
+				<tr>
+					<td><strong>Therapy Type</strong></td>
+					<td>{{ detail.therapy_type or "" }}</td>
+					<td><strong>No Of Sessions</strong></td>
+					<td>{{ detail.no_of_sessions or 0 }}</td>
+				</tr>
+				<tr>
+					<td><strong>Interval</strong></td>
+					<td>{{ detail.interval or "" }}</td>
+					<td><strong>Sessions Completed</strong></td>
+					<td>{{ detail.sessions_completed or 0 }}</td>
+				</tr>
+				<tr>
+					<td><strong>Patient Care Type</strong></td>
+					<td>{{ detail.patient_care_type or "" }}</td>
+					<td><strong>Intent / Priority</strong></td>
+					<td>{{ detail.intent or "" }}{% if detail.intent and detail.priority %} / {% endif %}{{ detail.priority or "" }}</td>
+				</tr>
+			</table>
+
+			{% set therapy_type_doc = frappe.get_doc("Therapy Type", detail.therapy_type) if detail.therapy_type else None %}
+			{% if therapy_type_doc and therapy_type_doc.exercises %}
+				<table class="table table-bordered table-sm" style="margin-left: 10px; width: calc(100% - 10px);">
+					<thead>
+						<tr>
+							<th style="width: 20%;">Exercise Type</th>
+							<th style="width: 15%;">Difficulty Level</th>
+							<th style="width: 12%;">Counts Target</th>
+							<th style="width: 15%;">Assistance Level</th>
+							<th style="width: 38%;">Instructions / Images</th>
+						</tr>
+					</thead>
+					<tbody>
+					{% for exercise_row in therapy_type_doc.exercises %}
+						{% set exercise_doc = frappe.get_doc("Exercise Type", exercise_row.exercise_type) if exercise_row.exercise_type else None %}
+						<tr>
+							<td>{{ exercise_row.exercise_type or "" }}</td>
+							<td>{{ exercise_row.difficulty_level or (exercise_doc.difficulty_level if exercise_doc else "") }}</td>
+							<td>{{ exercise_row.counts_target or "" }}</td>
+							<td>{{ exercise_row.assistance_level or "" }}</td>
+							<td>
+								{% if exercise_doc and exercise_doc.description %}
+									<div style="margin-bottom: 6px;"><strong>Description:</strong> {{ exercise_doc.description }}</div>
+								{% endif %}
+
+								{% if exercise_doc and exercise_doc.exercise_steps %}
+									{% set instructions_path = exercise_doc.exercise_steps %}
+									{% set lower_path = instructions_path|lower %}
+									{% if lower_path.endswith('.png') or lower_path.endswith('.jpg') or lower_path.endswith('.jpeg') or lower_path.endswith('.gif') or lower_path.endswith('.bmp') or lower_path.endswith('.webp') %}
+										<div style="margin-bottom: 6px;"><strong>Exercise Instructions:</strong></div>
+										<img src="{{ instructions_path }}" style="max-width: 240px; max-height: 180px; height: auto; width: auto;" />
+									{% else %}
+										<div><strong>Exercise Instructions:</strong> <a href="{{ instructions_path }}" target="_blank">{{ instructions_path }}</a></div>
+									{% endif %}
+								{% endif %}
+
+								{% if exercise_doc and exercise_doc.steps_table %}
+									<div style="margin-top: 8px;"><strong>Exercise Steps:</strong></div>
+									{% for step in exercise_doc.steps_table %}
+										<div style="margin-top: 4px; padding: 6px; border: 1px solid #ddd;">
+											{% if step.title %}<div><strong>{{ step.title }}</strong></div>{% endif %}
+											{% if step.description %}<div>{{ step.description }}</div>{% endif %}
+											{% if step.image %}
+												<img src="{{ step.image }}" style="margin-top: 4px; max-width: 220px; max-height: 160px; height: auto; width: auto;" />
+											{% endif %}
+										</div>
+									{% endfor %}
+								{% endif %}
+							</td>
+						</tr>
+					{% endfor %}
+					</tbody>
+				</table>
+			{% else %}
+				<div style="margin-left: 10px;">No exercises configured for this therapy type.</div>
+			{% endif %}
+		</div>
+	{% endfor %}
+	{% else %}
+	<p>No therapy types added to this plan.</p>
+	{% endif %}
+	"""
+
+	_create_or_update_print_format(
+		name=name,
+		doc_type="Therapy Plan",
+		html=html,
+		existing=existing,
+	)
+
+
+def _create_or_update_print_format(name, doc_type, html, existing):
+	"""Upsert helper for custom Jinja print formats."""
+	if existing:
+		pf = frappe.get_doc("Print Format", name)
+		pf.doc_type = doc_type
+		pf.module = "Eumaria"
+		pf.custom_format = 1
+		pf.print_format_type = "Jinja"
+		pf.html = html
+		pf.disabled = 0
+		pf.save()
+		return
+
+	frappe.get_doc(
+		{
+			"doctype": "Print Format",
+			"doc_type": doc_type,
+			"name": name,
+			"module": "Eumaria",
+			"custom_format": 1,
+			"print_format_type": "Jinja",
+			"html": html,
+		}
+	).insert(ignore_permissions=True)
