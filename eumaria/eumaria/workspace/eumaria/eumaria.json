@@ -6,7 +6,7 @@
    "label": "Patient Appointments"
   }
  ],
- "content": "[{\"id\":\"ROJTsLWMPJ\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Total Patients\",\"col\":3}},{\"id\":\"1Freqz9HKs\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Total Patients Admitted\",\"col\":3}},{\"id\":\"0QzRgTJg9-\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Open Appointments\",\"col\":3}},{\"id\":\"JYHln5MkAe\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Appointments to Bill\",\"col\":3}},{\"id\":\"dXZc0-JCHq\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Patient Appointments\",\"col\":12}},{\"id\":\"h1ZIOVv08U\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Shortcuts</b></span>\",\"col\":12}},{\"id\":\"DLWfN1tFbG\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Appointment\",\"col\":4}},{\"id\":\"QeEJqOpcUJ\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Patients\",\"col\":4}},{\"id\":\"PXHfg4rRzT\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Patients History\",\"col\":4}},{\"id\":\"pNhv4SwVp3\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"fMhA2aCpFx\",\"type\":\"card\",\"data\":{\"card_name\":\"Masters\",\"col\":4}},{\"id\":\"gToeSw90dZ\",\"type\":\"card\",\"data\":{\"card_name\":\"Consultation\",\"col\":4}},{\"id\":\"v_a-uZuvif\",\"type\":\"card\",\"data\":{\"card_name\":\"Rehabilitation and Physiotherapy\",\"col\":4}},{\"id\":\"DlEpFt_k4h\",\"type\":\"card\",\"data\":{\"card_name\":\"Reports\",\"col\":4}},{\"id\":\"xssY3DVzk1\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}}]",
+ "content": "[{\"id\":\"ROJTsLWMPJ\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Total Patients\",\"col\":3}},{\"id\":\"1Freqz9HKs\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Total Patients Admitted\",\"col\":3}},{\"id\":\"0QzRgTJg9-\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Open Appointments\",\"col\":3}},{\"id\":\"JYHln5MkAe\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Appointments to Bill\",\"col\":3}},{\"id\":\"dXZc0-JCHq\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Patient Appointments\",\"col\":8}},{\"id\":\"MmF_TE3XEi\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"To Do\",\"col\":4}},{\"id\":\"h1ZIOVv08U\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Shortcuts</b></span>\",\"col\":12}},{\"id\":\"DLWfN1tFbG\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Appointment\",\"col\":4}},{\"id\":\"QeEJqOpcUJ\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Patients\",\"col\":4}},{\"id\":\"PXHfg4rRzT\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Patients History\",\"col\":4}},{\"id\":\"pNhv4SwVp3\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"fMhA2aCpFx\",\"type\":\"card\",\"data\":{\"card_name\":\"Masters\",\"col\":4}},{\"id\":\"gToeSw90dZ\",\"type\":\"card\",\"data\":{\"card_name\":\"Consultation\",\"col\":4}},{\"id\":\"v_a-uZuvif\",\"type\":\"card\",\"data\":{\"card_name\":\"Rehabilitation and Physiotherapy\",\"col\":4}},{\"id\":\"DlEpFt_k4h\",\"type\":\"card\",\"data\":{\"card_name\":\"Reports\",\"col\":4}},{\"id\":\"xssY3DVzk1\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}}]",
  "creation": "2026-02-05 08:22:48.092705",
  "custom_blocks": [],
  "docstatus": 0,
@@ -287,7 +287,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-02-25 10:36:57.058010",
+ "modified": "2026-03-20 10:10:45.350640",
  "modified_by": "Administrator",
  "module": "Eumaria",
  "name": "Eumaria",
@@ -312,7 +312,13 @@
  "owner": "Administrator",
  "parent_page": "",
  "public": 1,
- "quick_lists": [],
+ "quick_lists": [
+  {
+   "document_type": "ToDo",
+   "label": "To Do",
+   "quick_list_filter": "[[\"ToDo\",\"status\",\"=\",\"Open\"]]"
+  }
+ ],
  "roles": [],
  "sequence_id": 35.0,
  "shortcuts": [
