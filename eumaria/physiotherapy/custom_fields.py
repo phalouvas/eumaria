@@ -95,8 +95,10 @@ def execute():
 
 	# Add property setters for gift card field behavior
 	set_gift_card_field_properties()
-	set_comments_in_list_view()
+	# Make score field optional first (this also adds options to fix healthcare module bug)
 	make_score_field_optional()
+	# Now set comments in list view (this will trigger validation)
+	set_comments_in_list_view()
 	create_or_update_patient_assessment_print_format()
 	create_or_update_therapy_type_print_format()
 	create_or_update_therapy_plan_print_format()
@@ -211,12 +213,23 @@ def set_comments_in_list_view():
 
 def make_score_field_optional():
 	"""Make score field not required so users can save without filling all scores."""
+	# First, ensure the Select field has options if it doesn't have any
+	# This is a workaround for a bug in the healthcare module
 	make_property_setter(
 		"Patient Assessment Sheet",
 		"score",
-		"default",
-		"1",
+		"options",
+		"1\n2\n3\n4\n5",
 		"Text",
+	)
+	
+	# Now make the field not required
+	make_property_setter(
+		"Patient Assessment Sheet",
+		"score",
+		"reqd",
+		0,
+		"Check",
 	)
 
 

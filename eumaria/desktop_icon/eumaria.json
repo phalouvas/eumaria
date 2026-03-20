@@ -1,6 +1,6 @@
 {
  "app": "eumaria",
- "creation": "2026-02-05 08:55:00.000000",
+ "creation": "2026-02-05 08:55:00",
  "docstatus": 0,
  "doctype": "Desktop Icon",
  "hidden": 0,
@@ -10,11 +10,13 @@
  "label": "Eumaria",
  "link_to": "Eumaria",
  "link_type": "Workspace Sidebar",
- "modified": "2026-02-05 08:55:00.000000",
+ "logo_url": "/assets/eumaria/images/eumariaphysio.com.logo_150x150.png",
+ "modified": "2026-03-20 09:29:10.016031",
  "modified_by": "Administrator",
  "name": "Eumaria",
  "owner": "Administrator",
  "restrict_removal": 0,
  "roles": [],
+ "sidebar": "Eumaria",
  "standard": 1
 }
