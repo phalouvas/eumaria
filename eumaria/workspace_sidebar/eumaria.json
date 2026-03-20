@@ -33,6 +33,19 @@
   {
    "child": 0,
    "collapsible": 1,
+   "filters": "[[\"ToDo\",\"status\",\"=\",\"Open\"]]",
+   "icon": "list-todo",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "To Do",
+   "link_to": "ToDo",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
    "icon": "list",
    "indent": 0,
    "keep_closed": 0,
@@ -263,7 +276,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-03-05 10:58:42.468256",
+ "modified": "2026-03-20 11:40:18.388227",
  "modified_by": "Administrator",
  "module": "Eumaria",
  "name": "Eumaria",
