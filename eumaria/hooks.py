@@ -11,15 +11,15 @@ app_license = "mit"
 # required_apps = []
 
 # Each item in the list will be shown as an app in the apps page
-# add_to_apps_screen = [
-# 	{
-# 		"name": "eumaria",
-# 		"logo": "/assets/eumaria/logo.png",
-# 		"title": "Eumaria",
-# 		"route": "/eumaria",
+add_to_apps_screen = [
+	{
+		"name": "eumaria",
+		"logo": "/assets/eumaria/images/eumariaphysio.com.logo_150x150.png",
+		"title": "Eumaria",
+		"route": "/eumaria"
 # 		"has_permission": "eumaria.api.permission.has_app_permission"
-# 	}
-# ]
+	}
+]
 
 # Includes in <head>
 # ------------------
