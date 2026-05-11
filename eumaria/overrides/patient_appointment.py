@@ -115,11 +115,30 @@ class PatientAppointment(core_patient_appointment.PatientAppointment):
 						MaximumCapacityError,
 					)
 
+	def on_update(self):
+		"""Override to reset reminded flag when appointment is rescheduled."""
+		super().on_update()
+
+		if not getattr(self, "is_group_session", 0):
+			doc_before = self.get_doc_before_save()
+			if doc_before:
+				old_dt = get_datetime(
+					f"{doc_before.appointment_date} {doc_before.appointment_time or '00:00:00'}"
+				)
+				new_dt = get_datetime(
+					f"{self.appointment_date} {self.appointment_time or '00:00:00'}"
+				)
+				if old_dt != new_dt:
+					frappe.db.set_value("Patient Appointment", self.name, "reminded", 0)
+					self.reminded = 0
+
 	def after_insert(self):
 		self.update_prescription_details()
 		self.set_payment_details()
 
+		# Belt-and-suspenders: ensure new non-group appointments start with reminded=0.
 		if not getattr(self, "is_group_session", 0):
+			self.reminded = 0
 			message = frappe.db.get_single_value("Healthcare Settings", "appointment_confirmation_msg")
 			if not message:
 				message = _("Your appointment is scheduled for {0}.").format(

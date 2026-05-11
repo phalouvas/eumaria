@@ -7,3 +7,5 @@
 eumaria.patches.remove_group_appointment_fields
 eumaria.patches.remove_group_appointment_attendee_doctype
 eumaria.patches.override_appointment_reminder_scheduler
+eumaria.patches.reset_reminded_flag
+eumaria.patches.fix_reminder_template
