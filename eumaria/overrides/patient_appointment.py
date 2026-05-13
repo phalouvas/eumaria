@@ -136,15 +136,24 @@ class PatientAppointment(core_patient_appointment.PatientAppointment):
 		self.update_prescription_details()
 		self.set_payment_details()
 
-		# Belt-and-suspenders: ensure new non-group appointments start with reminded=0.
-		if not getattr(self, "is_group_session", 0):
-			self.reminded = 0
-			message = frappe.db.get_single_value("Healthcare Settings", "appointment_confirmation_msg")
-			if not message:
-				message = _("Your appointment is scheduled for {0}.").format(
-					_get_appointment_datetime_for_sms(self)
-				)
-			_send_templated_sms(self, message, "Appointment SMS Not Sent")
+		# ── Disabled: automatic confirmation SMS on new appointment ──────────────
+		# Disabled May 2026 per customer request — appointments should only
+		# receive the day-before reminder, not an immediate confirmation SMS.
+		#
+		# The manual "Send Confirmation SMS" button on the form still works
+		# (see send_appointment_sms whitelisted method below).
+		# The scheduled day-before reminder is also unaffected.
+		#
+		# To re-enable: uncomment the block below.
+		# ──────────────────────────────────────────────────────────────────────────
+		# if not getattr(self, "is_group_session", 0):
+		# 	self.reminded = 0
+		# 	message = frappe.db.get_single_value("Healthcare Settings", "appointment_confirmation_msg")
+		# 	if not message:
+		# 		message = _("Your appointment is scheduled for {0}.").format(
+		# 			_get_appointment_datetime_for_sms(self)
+		# 		)
+		# 	_send_templated_sms(self, message, "Appointment SMS Not Sent")
 
 		self.insert_calendar_event()
 
