@@ -2,6 +2,7 @@ import datetime
 
 import frappe
 from frappe import _
+from frappe.core.doctype.sms_settings.sms_settings import send_sms
 
 
 HEALTHCARE_REMINDER_METHOD = (
@@ -78,14 +79,25 @@ def send_appointment_reminder():
 
     for appointment_name in appointment_list:
         doc = frappe.get_doc("Patient Appointment", appointment_name)
+
+        # Check patient mobile early — skip if missing
+        patient_mobile = frappe.db.get_value("Patient", doc.patient, "mobile")
+        if not patient_mobile:
+            _add_sms_activity(
+                appointment_name,
+                _(
+                    "Reminder SMS skipped — Patient {0} has no mobile number. "
+                    "Please update the Patient record and the scheduler will retry."
+                ).format(doc.patient),
+            )
+            continue
+
         try:
             rendered = _render_sms_template(message, doc)
-            from healthcare.healthcare.doctype.patient_appointment import (
-                patient_appointment as core_patient_appointment,
-            )
+            send_sms([patient_mobile], rendered)
 
-            core_patient_appointment.send_message(doc, rendered)
             frappe.db.set_value("Patient Appointment", doc.name, "reminded", 1)
+
             _add_sms_activity(
                 appointment_name,
                 f"Reminder SMS sent at {now_dt}. "
