@@ -56,7 +56,25 @@ def invoice_appointment(appointment_name: str, discount_percentage: float = 0, d
     appointment_doc.reload()
 
 def cancel_appointment(appointment_id):
-    """Keep healthcare cancellation flow; gift-card balance sync is handled on Sales Invoice cancel hook."""
+    """Cancel appointment with fix for healthcare's check_sales_invoice_exists returning False on bool.
+
+    If appointment.invoiced=1 but no linked Sales Invoice Item exists (data inconsistency),
+    reset the flag before delegating to the original handler to prevent:
+        AttributeError: 'bool' object has no attribute 'name'
+    """
+    appointment = frappe.get_doc("Patient Appointment", appointment_id)
+
+    # Fix data inconsistency: invoiced=1 but no linked Sales Invoice Item
+    if appointment.invoiced:
+        sales_invoice_name = frappe.db.get_value(
+            "Sales Invoice Item",
+            {"reference_dt": "Patient Appointment", "reference_dn": appointment.name},
+            "parent",
+        )
+        if not sales_invoice_name:
+            frappe.db.set_value("Patient Appointment", appointment_id, "invoiced", 0)
+            appointment.reload()
+
     original_cancel_appointment(appointment_id)
 
 
