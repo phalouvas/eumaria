@@ -5,7 +5,7 @@ from healthcare.healthcare.doctype.patient_appointment.patient_appointment impor
 	OverlapError,
 	MaximumCapacityError,
 )
-from frappe.utils import add_days, getdate
+from frappe.utils import add_days, getdate, get_datetime, get_time, flt
 
 
 def mark_group_session_reminded(doc, method=None):
@@ -28,6 +28,7 @@ def clone_group_session_appointments():
 			"appointment_date": ["between", (start_current_week, end_current_week)],
 			"status": ["!=", "Cancelled"],
 			"docstatus": ["<", 2],
+			"group_session_source": ["is", "not set"],
 		},
 		fields=[
 			"name",
@@ -63,6 +64,27 @@ def clone_group_session_appointments():
 			):
 				continue
 
+			# Pre-insert safety check: skip if patient already has an
+			# appointment at this target date and time
+			if frappe.db.exists(
+				"Patient Appointment",
+				{
+					"patient": source.patient,
+					"appointment_date": target_date,
+					"appointment_time": source.appointment_time,
+					"status": ["not in", ("Cancelled", "Closed")],
+				},
+			):
+				frappe.log_error(
+					{
+						"source_appointment": source.name,
+						"target_date": target_date,
+						"patient": source.patient,
+					},
+					"Group session clone skipped: patient already booked",
+				)
+				continue
+
 			clone = frappe.new_doc("Patient Appointment")
 			clone.update(
 				{
@@ -88,13 +110,6 @@ def clone_group_session_appointments():
 			try:
 				clone.insert(ignore_permissions=True)
 			except (OverlapError, MaximumCapacityError):
-				frappe.log_error(
-					{
-						"source_appointment": source.name,
-						"target_date": target_date,
-					},
-					"Group session clone skipped",
-				)
 				frappe.log_error(
 					frappe.get_traceback(),
 					"Group session clone skipped: validation error",
