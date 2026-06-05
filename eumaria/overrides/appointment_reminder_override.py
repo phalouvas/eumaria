@@ -84,6 +84,12 @@ def send_appointment_reminder():
     Adds comprehensive logging, guards against same-day processing (prevents
     the midnight ``reminded=1`` bug), and prevents duplicate concurrent runs
     via a distributed cache lock.
+
+    Deduplication uses **timeline comments** instead of the ``reminded`` field,
+    because ``reminded`` may be set by other processes (group session validation,
+    manual confirmation SMS, etc.), making it an unreliable dedup signal.
+    The timeline comment with prefix ``"Reminder SMS sent at"`` is set
+    exclusively by this function.
     """
 
     # ── Guard: feature enabled? ──────────────────────────────────────────────
@@ -111,12 +117,13 @@ def send_appointment_reminder():
         now_dt = frappe.utils.now_datetime()
         reminder_dt = now_dt + remind_delta
 
-        # Fetch ALL matching appointments (limit_page_length=0 means no limit).
+        # Fetch ALL matching appointments regardless of reminded flag.
+        # Deduplication is handled via timeline-comment check below,
+        # not the `reminded` field (which may be set by other processes).
         appointment_list = frappe.db.get_all(
             "Patient Appointment",
             {
                 "appointment_datetime": ["between", (now_dt, reminder_dt)],
-                "reminded": 0,
                 "status": ["!=", "Cancelled"],
             },
             pluck="name",
@@ -135,10 +142,34 @@ def send_appointment_reminder():
             _render_sms_template,
         )
 
+        # ── Batch deduplication: find appointments already reminded ──────────
+        # We use timeline comments (set exclusively by this function) rather
+        # than the `reminded` field, which may be corrupted by other processes.
+        # Look back twice the remind window to catch reminders sent on
+        # previous scheduler runs.
+        already_reminded = set(
+            frappe.get_all(
+                "Comment",
+                filters={
+                    "reference_doctype": "Patient Appointment",
+                    "reference_name": ["in", appointment_list],
+                    "content": ["like", "%Reminder SMS sent%"],
+                    "creation": [">=", now_dt - remind_delta * 2],
+                },
+                pluck="reference_name",
+                limit_page_length=0,
+            )
+        )
+
         # ── Stats for summary ────────────────────────────────────────────────
-        counts = {"sent": 0, "no_mobile": 0, "same_day": 0, "failed": 0}
+        counts = {"sent": 0, "already_reminded": 0, "no_mobile": 0, "same_day": 0, "failed": 0}
 
         for appointment_name in appointment_list:
+            # ── Dedup: skip if already reminded via timeline ─────────────────
+            if appointment_name in already_reminded:
+                counts["already_reminded"] += 1
+                continue
+
             doc = frappe.get_doc("Patient Appointment", appointment_name)
 
             # ── Guard: skip same-day appointments ────────────────────────────
@@ -198,7 +229,8 @@ def send_appointment_reminder():
         total = sum(counts.values())
         frappe.log_error(
             f"[eumaria] send_appointment_reminder summary — "
-            f"{total} appointment(s) processed: "
+            f"{total} appointment(s) in window: "
+            f"{counts['already_reminded']} already reminded (dedup), "
             f"{counts['sent']} sent, "
             f"{counts['no_mobile']} skipped (no mobile), "
             f"{counts['same_day']} skipped (same-day), "
