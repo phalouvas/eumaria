@@ -75,14 +75,6 @@ def clone_group_session_appointments():
 					"status": ["not in", ("Cancelled", "Closed")],
 				},
 			):
-				frappe.log_error(
-					{
-						"source_appointment": source.name,
-						"target_date": target_date,
-						"patient": source.patient,
-					},
-					"Group session clone skipped: patient already booked",
-				)
 				continue
 
 			clone = frappe.new_doc("Patient Appointment")

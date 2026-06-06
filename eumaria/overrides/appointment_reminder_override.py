@@ -225,19 +225,6 @@ def send_appointment_reminder():
                 )
                 counts["failed"] += 1
 
-        # ── Log a one-line summary ───────────────────────────────────────────
-        total = sum(counts.values())
-        frappe.log_error(
-            f"[eumaria] send_appointment_reminder summary — "
-            f"{total} appointment(s) in window: "
-            f"{counts['already_reminded']} already reminded (dedup), "
-            f"{counts['sent']} sent, "
-            f"{counts['no_mobile']} skipped (no mobile), "
-            f"{counts['same_day']} skipped (same-day), "
-            f"{counts['failed']} failed.",
-            _("Appointment Reminder — Run Summary"),
-        )
-
     finally:
         _release_lock()
 
@@ -262,11 +249,6 @@ def ensure_scheduler_uses_eumaria_reminder() -> None:
         if method == HEALTHCARE_REMINDER_METHOD:
             frappe.db.set_value("Scheduled Job Type", job_name, "method", EUMARIA_REMINDER_METHOD)
             frappe.db.set_value("Scheduled Job Type", job_name, "stopped", 0)
-            frappe.log_error(
-                f"[eumaria] Switched Scheduled Job Type {job_name} "
-                f"from healthcare original to eumaria override.",
-                _("Appointment Reminder — Scheduler Switched"),
-            )
 
 
 def execute() -> None:
