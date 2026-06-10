@@ -125,6 +125,7 @@ def send_appointment_reminder():
             {
                 "appointment_datetime": ["between", (now_dt, reminder_dt)],
                 "status": ["!=", "Cancelled"],
+                "is_group_session": 0,
             },
             pluck="name",
             limit_page_length=0,
