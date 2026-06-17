@@ -1,5 +1,3 @@
-import datetime
-
 import frappe
 from healthcare.healthcare.doctype.patient_appointment.patient_appointment import (
 	OverlapError,
@@ -15,17 +13,20 @@ def mark_group_session_reminded(doc, method=None):
 
 
 def clone_group_session_appointments():
-	"""Clone current week's group appointments four weeks ahead (runs Thursdays)."""
-	# Identify week boundaries (Mon–Sun)
+	"""Clone group appointments four weeks ahead (runs Thursdays).
+
+	Uses an "alive chain" detection: a source's chain is considered alive if
+	the patient has ANY group appointment of this type within ±28 days of
+	today.  This lets the chain survive short scheduler outages while
+	allowing chains for departed patients to expire naturally.
+	"""
 	today = getdate()
-	start_current_week = today - datetime.timedelta(days=today.weekday())
-	end_current_week = start_current_week + datetime.timedelta(days=6)
+	cutoff = add_days(today, -28)
 
 	source_appointments = frappe.get_all(
 		"Patient Appointment",
 		filters={
 			"is_group_session": 1,
-			"appointment_date": ["between", (start_current_week, end_current_week)],
 			"status": ["!=", "Cancelled"],
 			"docstatus": ["<", 2],
 			"group_session_source": ["is", "not set"],
@@ -54,10 +55,33 @@ def clone_group_session_appointments():
 	skipped_exists = 0
 	skipped_conflict = 0
 	skipped_error = 0
+	dead_chains = 0
 
 	for source in source_appointments:
-		for week_offset in (7, 14, 21, 28):
-			target_date = add_days(source.appointment_date, week_offset)
+		# ── Alive chain detection ──────────────────────────────────────
+		# A chain is alive if the patient has at least one group-session
+		# appointment of this type with a date ≥ (today – 28 days).
+		if not frappe.db.exists(
+			"Patient Appointment",
+			{
+				"patient": source.patient,
+				"appointment_type": source.appointment_type,
+				"appointment_date": [">=", cutoff],
+				"docstatus": ["<", 2],
+				"status": ["!=", "Cancelled"],
+			},
+		):
+			dead_chains += 1
+			continue
+
+		# ── Calculate next 4 same-weekday dates from today ─────────────
+		source_weekday = source.appointment_date.weekday()
+		days_until = (source_weekday - today.weekday()) % 7
+		if days_until == 0:
+			days_until = 7  # skip today, start next week
+
+		for i in range(4):
+			target_date = add_days(today, days_until + i * 7)
 
 			# Skip if a clone already exists for this source and target date
 			if frappe.db.exists(
@@ -117,10 +141,10 @@ def clone_group_session_appointments():
 				skipped_error += 1
 				continue
 
-	if created or skipped_exists or skipped_conflict or skipped_error:
-		frappe.log_error(
-			f"clone_group_session_appointments completed: "
-			f"{created} created, {skipped_exists} already existed, "
-			f"{skipped_conflict} patient conflicts, {skipped_error} errors.",
-			"Group Session Clone Summary",
-		)
+	frappe.log_error(
+		f"clone_group_session_appointments completed: "
+		f"{created} created, {skipped_exists} already existed, "
+		f"{skipped_conflict} patient conflicts, {skipped_error} errors, "
+		f"{dead_chains} dead chains skipped.",
+		"Group Session Clone Summary",
+	)
