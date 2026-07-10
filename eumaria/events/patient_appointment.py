@@ -15,13 +15,17 @@ def mark_group_session_reminded(doc, method=None):
 def clone_group_session_appointments():
 	"""Clone group appointments four weeks ahead (runs Thursdays).
 
-	Uses an "alive chain" detection: a source's chain is considered alive if
-	the patient has ANY group appointment of this type within ±28 days of
-	today.  This lets the chain survive short scheduler outages while
-	allowing chains for departed patients to expire naturally.
+	Uses a **time-aware alive chain** detection: a source's chain is
+	considered alive only if the patient has at least one appointment of
+	the SAME type AND SAME time within the last 28 days.  This prevents
+	an old time-slot from staying alive via clones of itself
+	(self-perpetuation) once the physio deletes those clones.
+
+	A 365‑day staleness backstop prevents any source from cloning
+	indefinitely even if the physio never cleans up.
 	"""
 	today = getdate()
-	cutoff = add_days(today, -28)
+	staleness_cutoff = add_days(today, -365)
 
 	source_appointments = frappe.get_all(
 		"Patient Appointment",
@@ -56,17 +60,26 @@ def clone_group_session_appointments():
 	skipped_conflict = 0
 	skipped_error = 0
 	dead_chains = 0
+	stale_sources = 0
 
 	for source in source_appointments:
-		# ── Alive chain detection ──────────────────────────────────────
-		# A chain is alive if the patient has at least one group-session
-		# appointment of this type with a date ≥ (today – 28 days).
+		# ── Safety backstop: source too old (>1 year) ──────────────────
+		if source.appointment_date < staleness_cutoff:
+			stale_sources += 1
+			continue
+
+		# ── Time-aware alive chain detection ───────────────────────────
+		# The chain is alive iff the patient still has an appointment of
+		# THIS type AND THIS time within the last 28 days.  Once the
+		# physio deletes the old-time clones, this check fails and the
+		# chain dies — it cannot self-perpetuate.
 		if not frappe.db.exists(
 			"Patient Appointment",
 			{
 				"patient": source.patient,
 				"appointment_type": source.appointment_type,
-				"appointment_date": [">=", cutoff],
+				"appointment_time": source.appointment_time,
+				"appointment_date": [">=", add_days(today, -28)],
 				"docstatus": ["<", 2],
 				"status": ["!=", "Cancelled"],
 			},
@@ -145,6 +158,6 @@ def clone_group_session_appointments():
 		f"clone_group_session_appointments completed: "
 		f"{created} created, {skipped_exists} already existed, "
 		f"{skipped_conflict} patient conflicts, {skipped_error} errors, "
-		f"{dead_chains} dead chains skipped.",
+		f"{stale_sources} stale (>90d), {dead_chains} dead chains skipped.",
 		"Group Session Clone Summary",
 	)
