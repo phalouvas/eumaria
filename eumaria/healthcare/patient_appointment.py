@@ -289,7 +289,7 @@ def _build_holiday_background_events(start, end, filters):
 				"name": f"holiday-{holiday_date}",
 				"title": "Holiday",
 				"start": holiday_date,
-				"end": add_days(holiday_date, 1),
+				"end": holiday_date,
 				"allDay": 1,
 				"editable": 0,
 				"durationEditable": 0,
