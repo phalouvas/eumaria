@@ -17,5 +17,11 @@ frappe.query_reports["Daily Collections"] = {
 			default: frappe.datetime.get_today(),
 			reqd: 1,
 		},
+		{
+			fieldname: "include_pilates",
+			label: __("Include Pilates"),
+			fieldtype: "Check",
+			default: 1,
+		},
 	],
 };
