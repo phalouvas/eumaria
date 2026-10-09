@@ -16,7 +16,7 @@ add_to_apps_screen = [
 		"name": "eumaria",
 		"logo": "/assets/eumaria/images/eumariaphysio.com.logo_150x150.png",
 		"title": "Eumaria",
-		"route": "/eumaria"
+		"route": "/desk/eumaria"
 # 		"has_permission": "eumaria.api.permission.has_app_permission"
 	}
 ]
