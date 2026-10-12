@@ -365,15 +365,18 @@ eumaria.gift_card.show_payment_dialog = function(frm, fields) {
 				},
 			});
 		},
-		secondary_action_label: __(`<svg class="icon  icon-sm" style="">
-			<use class="" href="#icon-printer"></use>
-		</svg>`),
+		secondary_action_label: __("Print"),
 		secondary_action() {
 			window.open("/app/print/Sales Invoice/" + frm.doc.ref_sales_invoice, "_blank");
 			d.hide();
 		},
 	});
-	
+
+	// Espresso dialog buttons render labels as plain text (HTML is escaped), so
+	// the printer icon is attached to the button element instead of being passed
+	// as an inline SVG string in secondary_action_label.
+	d.get_secondary_btn().prepend(frappe.utils.icon("printer", "sm"));
+
 	// Set gift card filter based on patient's customer
 	if (frm.doc.patient) {
 		frappe.db.get_value("Patient", frm.doc.patient, "customer").then(r => {
