@@ -221,6 +221,39 @@ frappe.views.calendar["Patient Appointment"] = {
 			}
 		},
 	},
+	// Frappe 16.50 renders calendar event colors as soft "espresso" tints
+	// (see frappe/public/js/frappe/views/calendar/calendar.js::prepare_colors).
+	// This instance-level override restores the previous intense look for Patient
+	// Appointment events: the Appointment Type color as a solid fill with
+	// contrasting text, while leaving unavailability and holiday blocks untouched.
+	prepare_colors(d) {
+		// unavailability blocks keep their dedicated dashed/gray styling
+		if (d.is_unavailability) {
+			d.backgroundColor = "#efefef";
+			d.textColor = "#444444";
+			return d;
+		}
+
+		// holiday background events stay a neutral gray band
+		if (d.is_holiday) {
+			d.backgroundColor = "#e4e4e4";
+			d.borderColor = "#e4e4e4";
+			return d;
+		}
+
+		let hex = d.color;
+		if (!hex || !frappe.ui.color.validate_hex(hex)) {
+			hex = "#449cf0"; // fallback: Frappe default blue
+		}
+
+		d.backgroundColor = hex;
+		d.textColor = frappe.ui.color.brightness(hex) < 150 ? "#ffffff" : "#1f2937";
+
+		// marker class lets the stylesheet drop the soft espresso accent bar
+		d.classNames = (d.classNames || []).concat("eumaria-intense-event");
+
+		return d;
+	},
 	get_events_method: "eumaria.healthcare.patient_appointment.get_events_with_availability",
 	update_event_method: "eumaria.healthcare.patient_appointment.update_patient_appointment_from_calendar",
 };
