@@ -5,9 +5,13 @@
 	margin-top: 2px;
 }
 
-.fc-event.unavailability-block {
+/* Frappe 16.50 adds `.fc .fc-event { border: none !important }` (plus
+   `.fc-daygrid-event { border: none !important }`), which removed the dashed
+   outline that marks unavailability blocks. The extra `.fc` and `!important`
+   on the border are needed to beat those rules on specificity. */
+.fc .fc-event.unavailability-block {
 	background-color: #efefef;
-	border: 1px dashed #c0c0c0;
+	border: 1px dashed #c0c0c0 !important;
 	color: #444;
 	opacity: 0.9;
 	cursor: default;
