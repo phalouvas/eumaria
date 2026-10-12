@@ -84,3 +84,16 @@
 .fc .fc-scrollgrid-liquid {
 	height: calc(100vh - 150px) !important;
 }
+
+/* Restore the pre-16.50 intense Appointment Type colors for Patient
+   Appointment events. Frappe 16.50 renders colors as soft espresso tints
+   with a 2px accent bar using the event's text color; the marker class is
+   added by prepare_colors() in patient_appointment_calendar.js. */
+.fc-event.eumaria-intense-event .fc-event-main::before {
+	display: none;
+}
+
+.fc-event.eumaria-intense-event .fc-event-time {
+	color: inherit;
+	opacity: 0.85;
+}
