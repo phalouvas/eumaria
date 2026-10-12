@@ -21,6 +21,14 @@
 	color: #444;
 }
 
+/* Frappe 16.50 draws a 2px accent bar on timed events
+   (`.fc-timegrid-event .fc-event-main::before`, colored with currentColor).
+   That bar signals a colored appointment chip, so it is meaningless on the
+   neutral unavailability block — three classes beat Frappe's two. */
+.fc-event.unavailability-block .fc-event-main::before {
+	display: none;
+}
+
 .fc-event.unavailability-block .unavailability-content {
 	line-height: 1.2;
 }
