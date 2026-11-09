@@ -5,6 +5,14 @@ ENGLISH_LANGUAGE = "en"
 ENGLISH_PREFIX = "en/"
 HOME_ROUTES = ("", "home", "index")
 
+#: Canonical public origin. ``hreflang`` and ``og:locale`` must point at the
+#: production URLs, never at the dev host (``http://127.0.0.1:8000``), otherwise
+#: the pairs are invalid in the environment where they are actually crawled.
+CANONICAL_SITE_URL = "https://eumariaphysio.com"
+
+#: Open Graph locales. Facebook's list has ``el_GR``; ``el_CY`` does not exist.
+OG_LOCALES = {DEFAULT_LANGUAGE: "el_GR", ENGLISH_LANGUAGE: "en_US"}
+
 
 def resolve_language(route: str | None) -> tuple[str, str]:
 	"""Return ``(language, twin_route)`` for a website route.
@@ -30,8 +38,18 @@ def resolve_language(route: str | None) -> tuple[str, str]:
 	return DEFAULT_LANGUAGE, f"{ENGLISH_PREFIX}{route}"
 
 
+def page_url(route: str | None) -> str:
+	"""Absolute canonical URL for a website route, e.g. ``https://…/en``.
+
+	``home`` / ``""`` / ``index`` all resolve to the clean root ``https://…/``
+	so ``/home`` never leaks into ``hreflang`` (it 301-redirects to ``/``).
+	"""
+	route = _canonical_route(route)
+	return f"{CANONICAL_SITE_URL}/{route}" if route else f"{CANONICAL_SITE_URL}/"
+
+
 def update_website_context(context):
-	"""Website context hook: set ``<html lang>`` from the route only.
+	"""Website context hook: per-route language signals.
 
 	``frappe/templates/base.html`` renders ``<html lang="{{ boot.lang }}">`` and
 	``boot.lang`` comes from ``frappe.local.lang``, i.e. ``System Settings >
@@ -39,21 +57,87 @@ def update_website_context(context):
 	also translate the desk UI), and ``Web Page`` has no language field, so the
 	attribute is corrected here per request.
 
+	For the 26 published bilingual ``Web Page`` routes it also adds:
+
+	* three ``<link rel="alternate">`` tags (``el``, ``en``, ``x-default``)
+	  through ``context.head_include`` — ``rel="alternate"`` cannot be emitted
+	  through ``context.metatags``, which only renders ``<meta>`` elements;
+	* ``og:locale`` / ``og:locale:alternate`` in ``context.metatags``;
+	* a corrected ``<meta name="language">``.
+
+	The hook runs for every ``BaseTemplatePage`` renderer (``/login``, doc pages,
+	…), so the pair is emitted only when both pages exist and are published.
 	Read-only: nothing is written to the database, only the render context.
 	"""
 	try:
-		lang, _twin_route = resolve_language(_get_route())
+		route = _get_route()
+		lang, twin_route = resolve_language(route)
 
-		boot = context.get("boot")
-		if not boot:
-			return {}
+		if _is_published_page(route) and _is_published_page(twin_route):
+			_add_hreflang_links(context, route, twin_route, lang)
+			_add_locale_metatags(context, lang)
 
-		updated_boot = dict(boot)
-		updated_boot["lang"] = lang
-		return {"boot": updated_boot}
+		return _update_boot_language(context, lang)
 	except Exception:
 		frappe.log_error(frappe.get_traceback(), "eumaria update_website_context")
 		return {}
+
+
+def _add_hreflang_links(context, route: str, twin_route: str, lang: str) -> None:
+	"""Append the self-referencing, mutual ``el`` / ``en`` / ``x-default`` pair."""
+	if lang == ENGLISH_LANGUAGE:
+		greek_route, english_route = twin_route, route
+	else:
+		greek_route, english_route = route, twin_route
+
+	greek_url = page_url(greek_route)
+	links = (
+		("el", greek_url),
+		("en", page_url(english_route)),
+		# Greek is the primary language for the local audience.
+		("x-default", greek_url),
+	)
+	head_include = "".join(
+		f'<link rel="alternate" hreflang="{hreflang}" href="{url}">\n' for hreflang, url in links
+	)
+	context["head_include"] = (context.get("head_include") or "") + head_include
+
+
+def _add_locale_metatags(context, lang: str) -> None:
+	"""(Re)set ``og:locale``, ``og:locale:alternate`` and ``language``."""
+	metatags = context.get("metatags")
+	if metatags is None:
+		return
+
+	alternate_lang = ENGLISH_LANGUAGE if lang == DEFAULT_LANGUAGE else DEFAULT_LANGUAGE
+	metatags["og:locale"] = OG_LOCALES[lang]
+	metatags["og:locale:alternate"] = OG_LOCALES[alternate_lang]
+	# Core derives this from frappe.local.lang, i.e. the visitor's
+	# Accept-Language header, which contradicts <html lang> and the hreflang links.
+	metatags["language"] = lang
+
+
+def _update_boot_language(context, lang: str) -> dict:
+	"""``<html lang>`` comes from ``boot.lang``, i.e. ``System Settings > language``."""
+	boot = context.get("boot")
+	if not boot:
+		return {}
+
+	updated_boot = dict(boot)
+	updated_boot["lang"] = lang
+	return {"boot": updated_boot}
+
+
+def _is_published_page(route: str | None) -> bool:
+	"""True when ``route`` is a published ``Web Page`` (the root is stored as ``home``)."""
+	db_route = _canonical_route(route) or "home"
+	return bool(frappe.db.exists("Web Page", {"route": db_route, "published": 1}))
+
+
+def _canonical_route(route: str | None) -> str:
+	"""Route as it appears in a URL: ``home`` / ``index`` collapse to ``""``."""
+	route = _normalise_route(route)
+	return "" if route in HOME_ROUTES else route
 
 
 def _normalise_route(route: str | None) -> str:
