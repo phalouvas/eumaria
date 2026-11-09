@@ -13,6 +13,9 @@ CANONICAL_SITE_URL = "https://eumariaphysio.com"
 #: Open Graph locales. Facebook's list has ``el_GR``; ``el_CY`` does not exist.
 OG_LOCALES = {DEFAULT_LANGUAGE: "el_GR", ENGLISH_LANGUAGE: "en_US"}
 
+#: Labels printed by the language switcher.
+LANGUAGE_LABELS = {DEFAULT_LANGUAGE: "EL", ENGLISH_LANGUAGE: "EN"}
+
 #: English labels for the ``Website Settings`` link tables, keyed by the *route* the
 #: database stores — never by the label. The database is the Greek source of truth
 #: and its labels get edited over time (today the navbar mixes "Υπηρεσίες" with
@@ -93,17 +96,13 @@ def update_website_context(context):
 	* a corrected ``<meta name="language">``.
 
 	On English routes only it also replaces the Greek chrome that ``Website
-	Settings`` holds for the whole site — the navbar and footer link tables, both
-	labels and URLs. See ``_localise_items()``.
+	Settings`` holds for the whole site — the navbar/footer link tables (labels and
+	URLs) and the EL|EN language switcher. See ``_localise_items()`` and
+	``_add_language_switcher()``.
 
 	The hook runs for every ``BaseTemplatePage`` renderer (``/login``, doc pages,
 	…), so the pair is emitted only when both pages exist and are published.
-	Read-only: nothing is written to the database, only the render context. The
-	chrome fields (``call_to_action``, ``title_prefix``, ``brand_html``,
-	``banner_html``, ``copyright``, ``footer_powered``, ``footer_address``) were
-	verified to hold no Greek text on this site, so they are deliberately left
-	untouched — the navbar ``brand_html`` is an image and the site ``address`` is
-	already English.
+	Read-only: nothing is written to the database, only the render context.
 	"""
 	try:
 		route = _get_route()
@@ -116,6 +115,7 @@ def update_website_context(context):
 		if _is_published_page(route) and _is_published_page(twin_route):
 			_add_hreflang_links(context, route, twin_route, lang)
 			_add_locale_metatags(context, lang)
+			_add_language_switcher(context, route, lang)
 
 		return _update_boot_language(context, lang)
 	except Exception:
@@ -150,6 +150,37 @@ def _english_item(item) -> dict:
 		row["label"] = label
 		row["url"] = twin_url(row.get("url"))
 	return row
+
+
+def _add_language_switcher(context, route: str, lang: str) -> None:
+	"""Append the EL|EN switcher to ``top_bar_items``.
+
+	One row, appended last, on the right: ``navbar_items.html`` renders right-hand
+	items in order and ``Login`` comes from ``navbar_login.html`` afterwards, so the
+	switcher lands immediately before it. The row is a marker (``is_lang_switcher``)
+	rather than a label/url pair because the switcher is two elements — the current
+	language as non-link text and the other language as a link — which the stock
+	``<a class="nav-link">`` row cannot express (see the app's
+	``templates/includes/navbar/navbar_items.html`` override).
+	"""
+	items = context.get("top_bar_items")
+	if not items:
+		return
+
+	other_lang = ENGLISH_LANGUAGE if lang == DEFAULT_LANGUAGE else DEFAULT_LANGUAGE
+	current = LANGUAGE_LABELS[lang]
+	other = LANGUAGE_LABELS[other_lang]
+	href = frappe.utils.escape_html(twin_url(route))
+	markup = (
+		'<li class="nav-item eumaria-lang-switcher" role="group" aria-label="Language">'
+		f'<span class="nav-link active" aria-current="true">{current}</span>'
+		f'<a class="nav-link" href="{href}" hreflang="{other_lang}" lang="{other_lang}">{other}</a>'
+		"</li>"
+	)
+	context["top_bar_items"] = [
+		*items,
+		frappe._dict(label="", url="", right=1, is_lang_switcher=1, html=markup),
+	]
 
 
 def _add_hreflang_links(context, route: str, twin_route: str, lang: str) -> None:

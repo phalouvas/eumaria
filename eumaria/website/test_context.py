@@ -109,6 +109,55 @@ class TestLocaliseItems(FrappeTestCase):
 		self.assertNotIn("top_bar_items", ctx)
 
 
+class TestLanguageSwitcher(FrappeTestCase):
+	"""Section B — one appended ``top_bar_items`` row, right aligned."""
+
+	def _row(self):
+		return frappe._dict(label="Home", url="/en", right=1)
+
+	def test_marker_row_is_appended_last(self):
+		ctx = {"top_bar_items": [self._row()]}
+		context._add_language_switcher(ctx, "services/bowen", "el")
+
+		items = ctx["top_bar_items"]
+		self.assertEqual(len(items), 2)
+		self.assertEqual(items[0].url, "/en")
+		self.assertEqual(items[1].is_lang_switcher, 1)
+		self.assertEqual(items[1].right, 1)
+
+	def test_greek_page_links_to_english_twin(self):
+		ctx = {"top_bar_items": [self._row()]}
+		context._add_language_switcher(ctx, "services/bowen", "el")
+
+		markup = ctx["top_bar_items"][1].html
+		self.assertIn('<span class="nav-link active" aria-current="true">EL</span>', markup)
+		self.assertIn('href="/en/services/bowen"', markup)
+		self.assertIn('hreflang="en" lang="en">EN</a>', markup)
+
+	def test_english_page_links_to_greek_twin(self):
+		ctx = {"top_bar_items": [self._row()]}
+		context._add_language_switcher(ctx, "en", "en")
+
+		markup = ctx["top_bar_items"][1].html
+		self.assertIn('<span class="nav-link active" aria-current="true">EN</span>', markup)
+		self.assertIn('href="/"', markup)
+		self.assertIn('hreflang="el" lang="el">EL</a>', markup)
+
+	def test_current_language_is_not_a_link(self):
+		ctx = {"top_bar_items": [self._row()]}
+		context._add_language_switcher(ctx, "about", "el")
+
+		markup = ctx["top_bar_items"][1].html
+		current, _, other = markup.partition("</span>")
+		self.assertNotIn("<a", current)
+		self.assertIn('<a class="nav-link"', other)
+
+	def test_no_item_list_means_no_switcher(self):
+		ctx = {}
+		context._add_language_switcher(ctx, "about", "el")
+		self.assertEqual(ctx, {})
+
+
 class TestUpdateWebsiteContext(FrappeTestCase):
 	"""The hook end to end, with the request route and page lookups stubbed."""
 
@@ -141,6 +190,7 @@ class TestUpdateWebsiteContext(FrappeTestCase):
 		self.assertEqual([item.url for item in ctx["top_bar_items"][:2]], ["/en", "/en/services"])
 		self.assertEqual(ctx["footer_items"][0].label, "Contact")
 		self.assertEqual(ctx["footer_items"][0].url, "/en/contact")
+		self.assertTrue(ctx["top_bar_items"][-1].is_lang_switcher)
 		self.assertEqual(ctx["boot"]["lang"], "en")
 
 	def test_greek_route_keeps_the_database_label(self):
@@ -148,12 +198,13 @@ class TestUpdateWebsiteContext(FrappeTestCase):
 
 		self.assertEqual(ctx["top_bar_items"][1].label, "Υπηρεσίες")
 		self.assertEqual(ctx["top_bar_items"][1].url, "services")
+		self.assertTrue(ctx["top_bar_items"][-1].is_lang_switcher)
 		self.assertEqual(ctx["boot"]["lang"], "el")
 
-	def test_non_content_route_is_left_untouched(self):
+	def test_non_content_route_renders_no_switcher(self):
 		ctx = self._update("login", published=False)
 
-		self.assertEqual(ctx["top_bar_items"][1].label, "Υπηρεσίες")
+		self.assertFalse(any(item.get("is_lang_switcher") for item in ctx["top_bar_items"]))
 		self.assertEqual(ctx["boot"]["lang"], "el")
 
 	def test_broken_hook_returns_context_unchanged(self):
