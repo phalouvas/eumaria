@@ -53,6 +53,11 @@ doctype_calendar_js = {
 	"Patient Appointment": "public/js/patient_appointment_calendar.js"
 }
 
+# Website
+# ------------------
+# mutate the website render context per request (see eumaria/website/context.py)
+update_website_context = ["eumaria.website.context.update_website_context"]
+
 # Svg Icons
 # ------------------
 # include app icons in desk
