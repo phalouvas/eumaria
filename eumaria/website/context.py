@@ -13,6 +13,21 @@ CANONICAL_SITE_URL = "https://eumariaphysio.com"
 #: Open Graph locales. Facebook's list has ``el_GR``; ``el_CY`` does not exist.
 OG_LOCALES = {DEFAULT_LANGUAGE: "el_GR", ENGLISH_LANGUAGE: "en_US"}
 
+#: English labels for the ``Website Settings`` link tables, keyed by the *route* the
+#: database stores — never by the label. The database is the Greek source of truth
+#: and its labels get edited over time (today the navbar mixes "Υπηρεσίες" with
+#: "Home"), so a label-keyed table would silently stop matching after a content edit.
+#: Routes not listed here keep their row untouched.
+ENGLISH_ITEM_LABELS = {
+	"": "Home",
+	"home": "Home",
+	"services": "Services",
+	"about": "About",
+	"contact": "Contact",
+	"terms": "Terms & Conditions",
+	"privacy-policy": "Privacy Policy",
+}
+
 
 def resolve_language(route: str | None) -> tuple[str, str]:
 	"""Return ``(language, twin_route)`` for a website route.
@@ -48,6 +63,18 @@ def page_url(route: str | None) -> str:
 	return f"{CANONICAL_SITE_URL}/{route}" if route else f"{CANONICAL_SITE_URL}/"
 
 
+def twin_url(route: str | None) -> str:
+	"""Root-relative URL of the same page in the other language.
+
+	``""`` / ``"home"`` -> ``/en``, ``"en"`` -> ``/``, ``"services"`` ->
+	``/en/services``, ``"en/services"`` -> ``/services``. The root pair is the only
+	one that is not the same route with an ``en/`` prefix, hence one helper shared by
+	the navbar rewrite and the language switcher.
+	"""
+	_, twin_route = resolve_language(route)
+	return f"/{twin_route}" if twin_route else "/"
+
+
 def update_website_context(context):
 	"""Website context hook: per-route language signals.
 
@@ -65,13 +92,26 @@ def update_website_context(context):
 	* ``og:locale`` / ``og:locale:alternate`` in ``context.metatags``;
 	* a corrected ``<meta name="language">``.
 
+	On English routes only it also replaces the Greek chrome that ``Website
+	Settings`` holds for the whole site — the navbar and footer link tables, both
+	labels and URLs. See ``_localise_items()``.
+
 	The hook runs for every ``BaseTemplatePage`` renderer (``/login``, doc pages,
 	…), so the pair is emitted only when both pages exist and are published.
-	Read-only: nothing is written to the database, only the render context.
+	Read-only: nothing is written to the database, only the render context. The
+	chrome fields (``call_to_action``, ``title_prefix``, ``brand_html``,
+	``banner_html``, ``copyright``, ``footer_powered``, ``footer_address``) were
+	verified to hold no Greek text on this site, so they are deliberately left
+	untouched — the navbar ``brand_html`` is an image and the site ``address`` is
+	already English.
 	"""
 	try:
 		route = _get_route()
 		lang, twin_route = resolve_language(route)
+
+		if lang == ENGLISH_LANGUAGE:
+			_localise_items(context, "top_bar_items")
+			_localise_items(context, "footer_items")
 
 		if _is_published_page(route) and _is_published_page(twin_route):
 			_add_hreflang_links(context, route, twin_route, lang)
@@ -81,6 +121,35 @@ def update_website_context(context):
 	except Exception:
 		frappe.log_error(frappe.get_traceback(), "eumaria update_website_context")
 		return {}
+
+
+def _localise_items(context, key: str) -> None:
+	"""Replace ``context[key]`` with deep copies carrying the English label and URL.
+
+	``context[key]`` comes from ``frappe.client_cache.get_doc("Website Settings")``,
+	i.e. the *same row objects* are reused by later requests. Mutating them in place
+	would leak English labels into the next Greek render, so every row is copied
+	(children included) and the copy is rewritten instead.
+	"""
+	items = context.get(key)
+	if not items:
+		return
+	context[key] = [_english_item(item) for item in items]
+
+
+def _english_item(item) -> dict:
+	"""Copy of one ``Top Bar Item`` row translated for an English route."""
+	# ``frappe._dict.__getattr__`` returns None for unknown keys, so ``hasattr()`` is
+	# True for plain dicts too — probe for a *callable* ``as_dict`` instead.
+	as_dict = getattr(item, "as_dict", None)
+	row = frappe._dict(as_dict() if callable(as_dict) else dict(item))
+	row["child_items"] = [_english_item(child) for child in item.get("child_items") or []]
+
+	label = ENGLISH_ITEM_LABELS.get(_normalise_route(row.get("url")))
+	if label:
+		row["label"] = label
+		row["url"] = twin_url(row.get("url"))
+	return row
 
 
 def _add_hreflang_links(context, route: str, twin_route: str, lang: str) -> None:
