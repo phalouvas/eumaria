@@ -1,0 +1,41 @@
+/*
+ * Website-only styles (hooks.py: web_include_css).
+ * Desk styles live in eumaria.css (app_include_css) and are not loaded here.
+ */
+
+/*
+ * EL | EN switcher (issue #68). Appended to the right-hand navbar list.
+ * The current language is text, not a link, so the active/inactive distinction
+ * must not rely on colour alone: weight + underline are used as well.
+ */
+.eumaria-lang-switcher {
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
+}
+
+.eumaria-lang-switcher .nav-link {
+	padding-left: 0.25rem;
+	padding-right: 0.25rem;
+}
+
+.eumaria-lang-switcher .nav-link.active {
+	font-weight: 600;
+	text-decoration: underline;
+	text-underline-offset: 0.25em;
+	cursor: default;
+}
+
+.eumaria-lang-switcher .nav-link.active:hover,
+.eumaria-lang-switcher .nav-link.active:focus {
+	text-decoration: underline;
+}
+
+.eumaria-lang-switcher a.nav-link {
+	text-decoration: none;
+}
+
+.eumaria-lang-switcher a.nav-link:hover,
+.eumaria-lang-switcher a.nav-link:focus {
+	text-decoration: underline;
+}

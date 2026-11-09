@@ -1,0 +1,72 @@
+{#-
+	Override of frappe's templates/includes/navbar/navbar_items.html.
+
+	The stock template can only render a row as ``<li><a class="nav-link">{{ label }}</a></li>``,
+	so a language switcher — the current language as plain, non-focusable text next to the
+	other language as a link (#68) — cannot be expressed through ``top_bar_items`` alone.
+	Rendering work is delegated to the stock ``render_item`` macro, imported through the
+	app-prefixed loader so this override does not shadow the original import.
+
+	Only the right-hand list differs: rows flagged ``is_lang_switcher`` emit pre-built
+	markup (see eumaria/website/context.py).
+-#}
+{%- import "frappe/templates/includes/navbar/navbar_items.html" as core -%}
+
+{% if top_bar_items -%}
+<ul class="mr-auto navbar-nav">
+	{%- for item in top_bar_items -%}
+		{% if not item.parent_label and not item.right -%}
+			{{ core.render_item(item, parent=True) }}
+		{%- endif -%}
+	{%- endfor %}
+</ul>
+{%- endif %}
+<ul class="ml-auto navbar-nav">
+	{%- for item in top_bar_items -%}
+		{% if not item.parent_label and item.right -%}
+			{% if item.is_lang_switcher -%}
+				{{ item.html }}
+			{%- else -%}
+				{{ core.render_item(item, parent=True) }}
+			{%- endif -%}
+		{%- endif -%}
+	{%- endfor %}
+	{% if not only_static %}
+		{% block navbar_right_extension %}{% endblock %}
+	{% endif %}
+
+	{% if show_sidebar and sidebar_items %}
+	<div class="d-block d-lg-none">
+		<hr>
+		{% for item in sidebar_items -%}
+			<li class="nav-item">
+				{% if item.type != 'input' %}
+					<a href="{{ item.route }}" class="nav-link {{ 'text-dark' if pathname==item.route else 'text-muted'}}"
+						{% if item.target %}target="{{ item.target }}"{% endif %}>
+						{{ _(item.title or item.label) }}
+					</a>
+				{% endif %}
+			</li>
+		{%- endfor %}
+		<hr>
+	</div>
+	{% endif %}
+
+	{% if read_only_mode %}
+	<div
+		class="es-badge align-self-center"
+		data-theme="amber"
+		title="{{ _("This site is in read only mode, full functionality will be restored soon.") }}"
+	>
+		{{ _("Read Only Mode") }}
+	</div>
+	{% endif %}
+
+	{% include "templates/includes/navbar/navbar_login.html" %}
+
+</ul>
+{%- if call_to_action -%}
+<a class="btn btn-primary navbar-cta" href="{{ call_to_action_url | abs_url }}">
+	{{ call_to_action }}
+</a>
+{%- endif -%}

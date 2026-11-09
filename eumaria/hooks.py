@@ -29,7 +29,7 @@ app_include_css = "/assets/eumaria/css/eumaria.css"
 app_include_js = ["/assets/eumaria/js/filterarea_mobile_fix.js"]
 
 # include js, css files in header of web template
-# web_include_css = "/assets/eumaria/css/eumaria.css"
+web_include_css = "/assets/eumaria/css/website.css"
 # web_include_js = "/assets/eumaria/js/eumaria.js"
 
 # include custom scss in every website theme (without file extension ".scss")
