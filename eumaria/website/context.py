@@ -78,6 +78,24 @@ def twin_url(route: str | None) -> str:
 	return f"/{twin_route}" if twin_route else "/"
 
 
+# Global chrome from ``Website Settings`` (issue #68, part C) needs no override here.
+# Verified against the dev site on 2026-11-09 — none of the remaining single-value
+# chrome fields is language-bearing:
+#
+#   call_to_action / call_to_action_url  NULL   (no CTA button is rendered)
+#   title_prefix                         NULL   (nothing to strip from <title>)
+#   brand_html                           NULL   (the brand is ``banner_image``: a logo)
+#   banner_html                          ""     (empty)
+#   copyright                            "All rights reserved"  (language-neutral)
+#   footer_powered                       "Powered by <a …>KAINOTOMO PH LTD</a>"
+#                                        (language-neutral: company name only)
+#   footer_address                       English already ("EUMARIA Physio Centre /
+#                                        Thermopylon 3, Liopetri 5320, Cyprus / …")
+#
+# If one of them ever gains Greek text, rewrite it here from ``context`` (never from
+# the database) and only for English routes, the same way as ``_localise_items()``.
+
+
 def update_website_context(context):
 	"""Website context hook: per-route language signals.
 
